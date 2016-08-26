@@ -5,52 +5,40 @@
 
 using namespace cv;
 
-/// Global variables
+/*Definindo valores de pixels BRANCO e PRETO*/
+#define WHITE 255
+#define BLACK 0 
 
-int threshold_value = 0;
-int threshold_type = 3;;
-int const max_value = 255;
-int const max_type = 4;
+/*Variáveis Globais*/
+int threshold_value = 0; //Valor do Threshold
+int const max_value = 255; //Valor máximo da Trackbar
 int const max_BINARY_value = 255;
 
-Mat src, src_gray, dst;
-char* window_name = "Threshold Demo";
-
-char* trackbar_type = "Type: \n 0: Binary \n 1: Binary Inverted \n 2: Truncate \n 3: To Zero \n 4: To Zero Inverted";
+Mat src, out; //Imagens de entrada e saída
+char* window_name = "VideoTool"; 
 char* trackbar_value = "Value";
 
-/// Function headers
-void Threshold_Demo( int, void* );
+/*Assinatura das funções*/
+void Threshold( int, void* );
 
-/**
- * @function main
- */
-int main( int argc, char** argv )
-{
-  /// Load an image
+int main( int argc, char** argv ) {
+
+  /*Carregar uma imagem*/
   src = imread( argv[1], 1 );
 
-  /// Convert the image to Gray
-  cvtColor( src, src_gray, CV_BGR2GRAY );
-
-  /// Create a window to display results
+  /*Criar uma Janela*/
   namedWindow( window_name, CV_WINDOW_AUTOSIZE );
 
-  /// Create Trackbar to choose type of Threshold
-  createTrackbar( trackbar_type,
-                  window_name, &threshold_type,
-                  max_type, Threshold_Demo );
-
+  /*Criando a Trackbar para alterar o valor do Thresholding*/
   createTrackbar( trackbar_value,
                   window_name, &threshold_value,
-                  max_value, Threshold_Demo );
+                  max_value, Threshold );
 
-  /// Call the function to initialize
-  Threshold_Demo( 0, 0 );
+  /*Inicializando a função Thresholding*/
+  Threshold( 0, 0 );
 
-  /// Wait until user finishes program
-  while(true)
-  {
+  /*Loop para encerrar o programa*/
+  while(true) {
     int c;
     c = waitKey( 20 );
     if( (char)c == 27 )
@@ -59,21 +47,38 @@ int main( int argc, char** argv )
 
 }
 
+void Threshold( int, void* ) {
+  /*Coordenadas da imagem*/
+  int Xi=402, Yi=206; //Iniciais
+  int X=966, Y=604; //Finais
 
-/**
- * @function Threshold_Demo
- */
-void Threshold_Demo( int, void* )
-{
-  /* 0: Binary
-     1: Binary Inverted
-     2: Threshold Truncated
-     3: Threshold to Zero
-     4: Threshold to Zero Inverted
-   */
+  /*Auxiliares*/
+  int i, j;
 
-  threshold( src_gray, dst, threshold_value, max_BINARY_value,threshold_type );
+  /*Atribuindo os valores de 0 para toda matriz out*/
+  for(i = 0; i < src.rows; i++) {
 
-  imshow( window_name, dst );
+    for(j = 0; j < src.cols; j++) {
+     
+      /*Area of interest*/
+      if((i >= Xi && i <= X) && (j >= Yi && j <= Y))
+	out.at<int>(i, j) = src.at<int>(i, j);
+      else
+       out.at<int>(i, j) = 0;
+    }
+  }
+
+  /*Threshold
+  for(i = Xi; i <= X; i++) {
+    for(j = Yi; j <= Y; j++) {
+      if (src.at(i, j) > threshold_value) {
+        out.at<int>(i, j) = WHITE;
+      }else{
+      	out.at<int>(i, j) = BLACK;
+      }
+    }
+  }*/
+
+  imshow( window_name, out );
 }
 
