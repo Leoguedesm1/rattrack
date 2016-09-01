@@ -6,3 +6,4 @@ add_executable( rattrack rattrack.cpp )
 add_executable( tool videotool.cpp )
 target_link_libraries( rattrack ${OpenCV_LIBS} )
 target_link_libraries( tool ${OpenCV_LIBS} )
+
