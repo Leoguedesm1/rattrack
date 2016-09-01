@@ -19,7 +19,7 @@ int const max_BINARY_value = 255;
 /*Coordenadas: início +- (402, 206) - (966, 604)*/
 int left=350, top=200, width=390, height=360;
 
-Mat src, out, aux, tela; //Imagens de entrada e saída
+Mat src, out, aux, tela, teste; //Imagens de entrada e saída
 int colsTela = 0, rowsTela = 0;
 char* window_name = "VideoTool"; 
 char* trackbar_value = "Value";
@@ -37,11 +37,6 @@ int main( int argc, char** argv ) {
 
   /*Criando a imagem de saida*/
   out = Mat(src.rows, src.cols, src.type());
-	
-  /*Criando imagem da tela*/
-  tela = Mat(src.rows, src.cols+out.cols, src.type());
-  colsTela = tela.cols;
-  rowsTela = tela.rows;
 
   /*Atribuindo os valores de para matriz out*/
   for(int i = 0; i < src.rows; i++) {
@@ -49,13 +44,22 @@ int main( int argc, char** argv ) {
       if((i >= top && i <= top+width-1) && (j >= left && j <= left+height-1))
 	out.at<int>(i, j) = src.at<int>(i, j);
       else
-       out.at<int>(i, j) = 0;
+        out.at<int>(i, j) = WHITE;
     }
   }
 
-  /*Clonando matriz out*/
-  out.copyTo(aux);
+  /*Mudando o tipo da imagem src e out*/
+  cvtColor(src, src, CV_RGB2GRAY);
+  cvtColor(out, out, CV_RGB2GRAY);
 
+  /*Criando imagem da tela*/
+  tela = Mat(src.rows, src.cols+src.cols, src.type());
+  colsTela = tela.cols;
+  rowsTela = tela.rows;
+
+  /*Copiando imagem out para imagem aux*/
+  out.copyTo(aux);
+  
   /*Copiando as imagens para a saída da tela*/
   src.copyTo(tela(Rect( 0, 0, src.cols, src.rows)));
   out.copyTo(tela(Rect(src.cols, 0, aux.cols, aux.rows)));
