@@ -10,8 +10,8 @@ int left=220, top=120, width=300, height=240;
 int main(int argc, char** argv)
 {
     //string filename = "teste 1.avi";
-    VideoCapture src("teste 1.avi");
-    VideoCapture out("teste 1.avi");
+    VideoCapture src(argv[1]);
+    VideoCapture out(argv[1]);
     Mat src_frame, out_frame, tela;
 
     if( !src.isOpened() )
@@ -24,6 +24,8 @@ int main(int argc, char** argv)
     
     for( ; ; )
     {
+    	Mat src_frame(CV_CAP_PROP_FRAME_WIDTH, CV_CAP_PROP_FRAME_HEIGHT, CV_8U, Scalar(0));
+    	Mat out_frame(CV_CAP_PROP_FRAME_WIDTH, CV_CAP_PROP_FRAME_HEIGHT, CV_8U, Scalar(0));
         src >> src_frame;
         out >> out_frame;
        
