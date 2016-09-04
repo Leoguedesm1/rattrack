@@ -18,10 +18,6 @@ int left=220, top=120, width=300, height=240;
 
 Mat out, tela; //Imagens de entrada e saída
 
-char* window_name = "VideoTool"; 
-char* trackbar_value = "Value";
-
-
 /*Assinatura das funções*/
 void Threshold( int, void* );
 
@@ -31,7 +27,7 @@ int main( int argc, char** argv ) {
   Mat src = imread( argv[1], CV_LOAD_IMAGE_GRAYSCALE);
 
   /*Criar uma Janela*/
-  namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+  namedWindow( "VideoTool" , CV_WINDOW_AUTOSIZE );
 
   /*Atribuindo os valores de para matriz out usando ROI*/
   out = src(Rect(left, top, width, height));
@@ -46,8 +42,8 @@ int main( int argc, char** argv ) {
   Threshold( 0, 0 );
 
   /*Criando a Trackbar para alterar o valor do Thresholding*/
-  createTrackbar( trackbar_value,
-                  window_name, &threshold_value,
+  createTrackbar( "Value",
+                  "VideoTool", &threshold_value,
                   max_value, Threshold );
 
 
@@ -77,6 +73,6 @@ void Threshold( int, void* ) {
   /*Copiando a imagen corrigida por ROI*/
   aux.copyTo(tela(Rect(left+tela.cols/2, top, aux.cols, aux.rows)));
   
-  imshow( window_name, tela);
+  imshow( "VideoTool", tela);
 
 }
