@@ -4,6 +4,7 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 add_executable( rattrack rattrack.cpp )
 add_executable( tool videotool.cpp )
+add_executable( test teste.cpp )
 target_link_libraries( rattrack ${OpenCV_LIBS} )
 target_link_libraries( tool ${OpenCV_LIBS} )
-
+target_link_libraries( test ${OpenCV_LIBS} )

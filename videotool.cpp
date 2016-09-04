@@ -1,8 +1,5 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
 
 using namespace cv;
 
@@ -13,16 +10,17 @@ using namespace cv;
 /*Variáveis Globais*/
 int threshold_value = 128; //Valor do Threshold
 int const max_value = 255; //Valor máximo da Trackbar
-int const max_BINARY_value = 255;
 
 /*Coordenadas da imagem*/
 /*Coordenadas: início +- (402, 206) - (966, 604)*/
-int left=350, top=200, width=390, height=360;
+// Imagen 704x480
+int left=220, top=120, width=300, height=240;
 
-Mat src, out, aux, tela, teste; //Imagens de entrada e saída
-int colsTela = 0, rowsTela = 0;
+Mat out, tela; //Imagens de entrada e saída
+
 char* window_name = "VideoTool"; 
 char* trackbar_value = "Value";
+
 
 /*Assinatura das funções*/
 void Threshold( int, void* );
@@ -30,42 +28,19 @@ void Threshold( int, void* );
 int main( int argc, char** argv ) {
 
   /*Carregar uma imagem*/
-  src = imread( argv[1], 1 );
+  Mat src = imread( argv[1], CV_LOAD_IMAGE_GRAYSCALE);
 
   /*Criar uma Janela*/
   namedWindow( window_name, CV_WINDOW_AUTOSIZE );
 
-  /*Criando a imagem de saida*/
-  out = Mat(src.rows, src.cols, src.type());
-
-  /*Atribuindo os valores de para matriz out*/
-  for(int i = 0; i < src.rows; i++) {
-    for(int j = 0; j < src.cols; j++) {
-      if((i >= top && i <= top+width-1) && (j >= left && j <= left+height-1))
-	out.at<int>(i, j) = src.at<int>(i, j);
-      else
-        out.at<int>(i, j) = WHITE;
-    }
-  }
-
-  /*Mudando o tipo da imagem src e out*/
-  cvtColor(src, src, CV_RGB2GRAY);
-  cvtColor(out, out, CV_RGB2GRAY);
-
-  /*Criando imagem da tela*/
-  tela = Mat(src.rows, src.cols+src.cols, src.type());
-  colsTela = tela.cols;
-  rowsTela = tela.rows;
-
-  /*Copiando imagem out para imagem aux*/
-  out.copyTo(aux);
+  /*Atribuindo os valores de para matriz out usando ROI*/
+  out = src(Rect(left, top, width, height));
   
-  /*Copiando as imagens para a saída da tela*/
-  src.copyTo(tela(Rect( 0, 0, src.cols, src.rows)));
-  out.copyTo(tela(Rect(src.cols, 0, aux.cols, aux.rows)));
-  /*Alterando para o tamanho da tela*/
-  Size size(1200, 550);
-  resize(tela, tela, size);
+  /*Criando imagem da tela*/
+  tela = Mat(src.rows, src.cols+src.cols, CV_8U, Scalar(0));
+ 
+  /*Copiando a imagen para a saída da tela*/
+  src.copyTo(tela(Rect(0, 0, src.cols, src.rows)));
 
   /*Inicializando a função Thresholding*/
   Threshold( 0, 0 );
@@ -87,28 +62,21 @@ int main( int argc, char** argv ) {
 }
 
 void Threshold( int, void* ) {
+  Mat aux(out.rows, out.cols, CV_8U, Scalar(0));
 
   /*Threshold*/
-  for(int i = top; i < top+width; i++) {
-    for(int j = left; j < left+height; j++) {
-      if (out.at<int>(i, j) > threshold_value) 
-        aux.at<int>(i, j) = BLACK;
+  for(int i = 0; i < out.rows; i++) {
+    for(int j = 0; j < out.cols; j++) {
+      if (out.at<uchar>(i, j) < threshold_value) 
+        aux.at<uchar>(i, j) = BLACK;
       else
-      	aux.at<int>(i, j) = WHITE;
+        aux.at<uchar>(i, j) = WHITE;
     }
   }
-
-  /*Voltando ao tamanho normal para fazer o Thresholding*/
-  Size tSize(colsTela, rowsTela);
-  resize(tela, tela, tSize);
-  /*Copiando as imagens*/
-  src.copyTo(tela(Rect( 0, 0, src.cols, src.rows)));
-  aux.copyTo(tela(Rect(src.cols, 0, aux.cols, aux.rows)));
-  /*Voltando ao tamanho da tela*/
-  Size size(1200, 550);
-  resize(tela, tela, size);
-
+  medianBlur(aux, aux, 5);
+  /*Copiando a imagen corrigida por ROI*/
+  aux.copyTo(tela(Rect(left+tela.cols/2, top, aux.cols, aux.rows)));
+  
   imshow( window_name, tela);
 
 }
-
