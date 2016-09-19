@@ -1,79 +1,142 @@
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include <stdlib.h>
 #include <stdio.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/opencv.hpp"
+#include <iostream>
 
 using namespace cv;
+using namespace std;
 
-/// Global variables
+/*Definindo valores de pixels BRANCO e PRETO*/
+#define WHITE 255
+#define BLACK 0 
 
-int threshold_value = 0;
-int threshold_type = 3;;
-int const max_value = 255;
-int const max_type = 4;
-int const max_BINARY_value = 255;
+/*Variáveis Globais*/
+// Imagen 704x480
+int left1=220, top=120, width=300, height=240;
+Mat src_frame, out, tela;
+int threshold_value = 110; //Valor do Threshold
+int const max_value = 255; //Valor máximo da Trackbar
 
-Mat src, src_gray, dst;
-char* window_name = "Threshold Demo";
+int min_area = 100;
+int max_area = 400;
+int const max_area_value = 1000;
 
-char* trackbar_type = "Type: \n 0: Binary \n 1: Binary Inverted \n 2: Truncate \n 3: To Zero \n 4: To Zero Inverted";
-char* trackbar_value = "Value";
+/*Assinatura das funções*/
+void Threshold( int, void* );
+void tracking(Mat aux);
+void callbackButton( int, void* );
 
-/// Function headers
-void Threshold_Demo( int, void* );
+int main(int argc, char** argv) {
+	/*Capturando video*/
+    VideoCapture src(argv[1]);
+	src.set(CAP_PROP_POS_MSEC, 360000);
+	
+	/*Verificando se o video foi aberto*/
+    if( !src.isOpened() )
+        throw "Error when reading steam_avi";
+                 
+	/*Janela*/
+    namedWindow( "VideoTool", CV_WINDOW_AUTOSIZE );  	
+    
+ 	/*Criando a Trackbar para alterar o valor do Thresholding*/
+    createTrackbar( "Value", "VideoTool", &threshold_value, max_value, Threshold );
+    
+    /*Trackbars para a area do rato*/
+    createTrackbar( "Min", "VideoTool", &min_area, max_area_value, Threshold );
+  	createTrackbar( "Max", "VideoTool", &max_area, max_area_value, Threshold );
+    
+  	tela = Mat(src.get(CV_CAP_PROP_FRAME_HEIGHT), src.get(CV_CAP_PROP_FRAME_WIDTH)*2, CV_8U, Scalar(0));
+    
+    /*Loop*/
+    for( ; ; )
+    {
+    	src >> src_frame;
+    	
+    	if(src_frame.empty())
+            break;
+        
+        Mat src_gray;
+        cvtColor(src_frame, src_gray, cv::COLOR_RGB2GRAY);
+    
+  		/*Atribuindo os valores de para matriz out usando ROI*/
+  		out = src_gray(Rect(left1, top, width, height));
+   		
+  		/*Copiando a imagen para a saída da tela*/
+  		src_gray.copyTo(tela(Rect(0, 0, src_frame.cols, src_frame.rows)));
+  		
+  		/*Inicializando a função Thresholding*/
+ 		Threshold( 0, 0 );
+ 		
+        waitKey(20); // waits to display frame
+    }
+    waitKey(0); // key press to close window
+}
 
-/**
- * @function main
- */
-int main( int argc, char** argv )
-{
-  /// Load an image
-  src = imread( argv[1], 1 );
+void Threshold( int, void* ) {
+  Mat aux(out.rows, out.cols, CV_8U, Scalar(0));
 
-  /// Convert the image to Gray
-  cvtColor( src, src_gray, CV_BGR2GRAY );
-
-  /// Create a window to display results
-  namedWindow( window_name, CV_WINDOW_AUTOSIZE );
-
-  /// Create Trackbar to choose type of Threshold
-  createTrackbar( trackbar_type,
-                  window_name, &threshold_type,
-                  max_type, Threshold_Demo );
-
-  createTrackbar( trackbar_value,
-                  window_name, &threshold_value,
-                  max_value, Threshold_Demo );
-
-  /// Call the function to initialize
-  Threshold_Demo( 0, 0 );
-
-  /// Wait until user finishes program
-  while(true)
-  {
-    int c;
-    c = waitKey( 20 );
-    if( (char)c == 27 )
-      { break; }
-   }
+  /*Threshold*/
+  for(int i = 0; i < out.rows; i++) {
+    for(int j = 0; j < out.cols; j++) {
+      if (out.at<uchar>(i, j) < threshold_value) 
+        aux.at<uchar>(i, j) = BLACK;
+      else
+        aux.at<uchar>(i, j) = WHITE;
+    }
+  }
+  
+  medianBlur(aux, aux, 5);
+  
+  tracking(aux);
 
 }
 
+void tracking(Mat aux) {
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+	int i;
+	
+	findContours( aux, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+  	
+  	// Get area
+  	vector<float> areas(contours.size());
+  	//cout << "areas\n";
+ 	
+  	for(i = 0; i < contours.size(); i++ ){
+  	    float area = contourArea(contours[i], false);
+  		if (area >= min_area && area <= max_area) {
+  		  //cout << "rato de area: " << area << " indice: " << i << "\n";
+  		  break; 
+  		}
+  	}
+  	
+  	if (i >= contours.size()){
+  	  //cout << "rato não encontrado\n";
+  	  imshow("VideoTool", tela);
+  	  return;
+  	}
+  		
+  	/// Get the moments
+  	vector<Moments> mu( contours.size() );
+  	mu[i] = moments( contours[i], false ); 
 
-/**
- * @function Threshold_Demo
- */
-void Threshold_Demo( int, void* )
-{
-  /* 0: Binary
-     1: Binary Inverted
-     2: Threshold Truncated
-     3: Threshold to Zero
-     4: Threshold to Zero Inverted
-   */
-
-  threshold( src_gray, dst, threshold_value, max_BINARY_value,threshold_type );
-
-  imshow( window_name, dst );
+	///  Get the mass centers:
+ 	vector<Point2f> mc( contours.size() );
+  	mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
+  	
+  	//Circulando contornos e destacando centro de massa  
+  	Scalar color = Scalar(255,0,0);
+    drawContours( aux, contours, i, color, 2, 8, hierarchy, 0, Point() );
+    circle( aux, mc[i], 4, color, -1, 8, 0 );
+  	
+	/*Copiando a imagen corrigida por ROI*/
+     aux.copyTo(tela(Rect(left1+tela.cols/2, top, aux.cols, aux.rows)));
+  
+	imshow( "VideoTool", tela);
 }
 
+void callbackButton( int, void* ){
+	cout << "hello\n";
+}
