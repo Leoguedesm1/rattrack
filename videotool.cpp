@@ -1,7 +1,7 @@
 #include <stdio.h>
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/opencv.hpp"
 #include <iostream>
 
@@ -26,11 +26,12 @@ int const max_area_value = 1000;
 /*Assinatura das funções*/
 void Threshold( int, void* );
 void tracking(Mat aux);
+void callbackButton( int, void* );
 
 int main(int argc, char** argv) {
 	/*Capturando video*/
     VideoCapture src(argv[1]);
-	src.set(CAP_PROP_POS_MSEC, 420000);
+	src.set(CAP_PROP_POS_MSEC, 360000);
 	
 	/*Verificando se o video foi aberto*/
     if( !src.isOpened() )
@@ -38,7 +39,7 @@ int main(int argc, char** argv) {
                  
 	/*Janela*/
     namedWindow( "VideoTool", CV_WINDOW_AUTOSIZE );  	
-    	
+    
  	/*Criando a Trackbar para alterar o valor do Thresholding*/
     createTrackbar( "Value", "VideoTool", &threshold_value, max_value, Threshold );
     
@@ -56,14 +57,32 @@ int main(int argc, char** argv) {
     	if(src_frame.empty())
             break;
         
-        Mat src_gray;
+        Mat src_gray, aux_gray;
         cvtColor(src_frame, src_gray, cv::COLOR_RGB2GRAY);
-    
+        cvtColor(src_frame, aux_gray, cv::COLOR_RGB2GRAY);
   		/*Atribuindo os valores de para matriz out usando ROI*/
   		out = src_gray(Rect(left1, top, width, height));
    		
+   		/*Affine Transformation*/
+   		Point2f inputQuad[4];
+   		Point2f outputQuad[4];
+   		Mat lambda( 2, 4, CV_32FC1 );
+   		lambda = Mat::zeros( src_gray.rows, src_gray.cols, src_gray.type() );
+   		
+   		inputQuad[0] = Point2f( left1, top );
+    	inputQuad[1] = Point2f( left1+width, top);
+    	inputQuad[2] = Point2f( left1+width, top+height);
+    	inputQuad[3] = Point2f( left1, top+height );
+    	outputQuad[0] = Point2f( 0, 0 );
+   		outputQuad[1] = Point2f( src_gray.cols-1,0);
+    	outputQuad[2] = Point2f( src_gray.cols-1,src_gray.rows-1);
+    	outputQuad[3] = Point2f( 0,src_gray.rows-1  );
+ 
+ 		lambda = getPerspectiveTransform( inputQuad, outputQuad );
+ 		warpPerspective(aux_gray,aux_gray,lambda,src_gray.size() );
+    	  
   		/*Copiando a imagen para a saída da tela*/
-  		src_gray.copyTo(tela(Rect(0, 0, src_frame.cols, src_frame.rows)));
+  		aux_gray.copyTo(tela(Rect(0, 0, src_frame.cols, src_frame.rows)));
   		
   		/*Inicializando a função Thresholding*/
  		Threshold( 0, 0 );
@@ -134,4 +153,8 @@ void tracking(Mat aux) {
      aux.copyTo(tela(Rect(left1+tela.cols/2, top, aux.cols, aux.rows)));
   
 	imshow( "VideoTool", tela);
+}
+
+void callbackButton( int, void* ){
+	cout << "hello\n";
 }
