@@ -57,32 +57,14 @@ int main(int argc, char** argv) {
     	if(src_frame.empty())
             break;
         
-        Mat src_gray, aux_gray;
+        Mat src_gray;
         cvtColor(src_frame, src_gray, cv::COLOR_RGB2GRAY);
-        cvtColor(src_frame, aux_gray, cv::COLOR_RGB2GRAY);
+    
   		/*Atribuindo os valores de para matriz out usando ROI*/
   		out = src_gray(Rect(left1, top, width, height));
    		
-   		/*Affine Transformation*/
-   		Point2f inputQuad[4];
-   		Point2f outputQuad[4];
-   		Mat lambda( 2, 4, CV_32FC1 );
-   		lambda = Mat::zeros( src_gray.rows, src_gray.cols, src_gray.type() );
-   		
-   		inputQuad[0] = Point2f( left1, top );
-    	inputQuad[1] = Point2f( left1+width, top);
-    	inputQuad[2] = Point2f( left1+width, top+height);
-    	inputQuad[3] = Point2f( left1, top+height );
-    	outputQuad[0] = Point2f( 0, 0 );
-   		outputQuad[1] = Point2f( src_gray.cols-1,0);
-    	outputQuad[2] = Point2f( src_gray.cols-1,src_gray.rows-1);
-    	outputQuad[3] = Point2f( 0,src_gray.rows-1  );
- 
- 		lambda = getPerspectiveTransform( inputQuad, outputQuad );
- 		warpPerspective(aux_gray,aux_gray,lambda,src_gray.size() );
-    	  
   		/*Copiando a imagen para a saída da tela*/
-  		aux_gray.copyTo(tela(Rect(0, 0, src_frame.cols, src_frame.rows)));
+  		src_gray.copyTo(tela(Rect(0, 0, src_frame.cols, src_frame.rows)));
   		
   		/*Inicializando a função Thresholding*/
  		Threshold( 0, 0 );
