@@ -20,16 +20,16 @@ using namespace std;
 
 /*Variáveis Globais*/
 // Imagen 704x480
-int left1=220, top=120, width=300, height=240;
-Mat src_frame, out, tela;
+Mat src_frame, out, tela, track;
 int threshold_value = 130; //Valor do Threshold
 int const max_value = 255; //Valor máximo da Trackbar
+double centerX, centerY;
 
 VideoCapture src;
 
 /*Area Bar*/
-int min_area = 300;
-int max_area = 1300;
+int min_area = 0;
+int max_area = 300;
 int const max_area_value = 1500;
 
 /*Reset Bar*/
@@ -37,11 +37,11 @@ int reset = 0;
 int const max_reset = 1;
 
 /*teste*/
-vector<Point2f> centerTrans;
+//vector<Point2f> centerTrans;
 
 /*Assinatura das funções*/
 void Threshold( int, void* );
-void tracking(Mat aux);
+void tracking(Mat aux, Mat track);
 void Reset( int, void* );
 
 int main(int argc, char** argv) {
@@ -56,8 +56,6 @@ int main(int argc, char** argv) {
 	/*Janela*/
     namedWindow( "VideoTool", WINDOW_NORMAL );  	
     resizeWindow( "VideoTool", 704, 480);
-    //namedWindow( "VideoTool2", WINDOW_NORMAL );  	
-    //resizeWindow( "VideoTool2", 704, 480);
     namedWindow( "Trackbars", WINDOW_NORMAL);
     
     /*Trackbar reseta o video*/
@@ -68,10 +66,14 @@ int main(int argc, char** argv) {
     createTrackbar( "Area Min", "Trackbars", &min_area, max_area_value, Threshold );
   	createTrackbar( "Area Max", "Trackbars", &max_area, max_area_value, Threshold );
     
- 	//tela = Mat(src.get(CV_CAP_PROP_FRAME_HEIGHT), src.get(CV_CAP_PROP_FRAME_WIDTH)*2, CV_8U, Scalar(0));
- 	tela = Mat(src.get(CV_CAP_PROP_FRAME_HEIGHT), src.get(CV_CAP_PROP_FRAME_WIDTH)*2, src_frame.type());
+ 	//tela = Mat(src.get(CV_CAP_PROP_FRAME_HEIGHT), src.get(CV_CAP_PROP_FRAME_WIDTH)*2, CV_8U3C, Scalar(0));
+ 	//track = Mat(src.get(CV_CAP_PROP_FRAME_HEIGHT), src.get(CV_CAP_PROP_FRAME_WIDTH), CV_8U, Scalar(0));
+ 	track = Mat(320, 453, CV_8U, Scalar(0));
+ 	
+ 	
  	Reset (0, 0);
-   
+    
+    
     /*Loop*/
     for( ; ; )
     {
@@ -92,7 +94,7 @@ int main(int argc, char** argv) {
         /*Vetores para reaplicar a Homography e ajustar a imagem na tela*/
 		vector<Point2f> cornerQuad, finalCornerQuad;
 		/*Vetores para encontrar o centro do círculo*/
-		vector<Point2f> center;
+		vector<Point2f> center, centerTrans;
 		
 		/*Encontrando a Homography*/
 		/*Pontos para serem modificados*/
@@ -145,7 +147,8 @@ int main(int argc, char** argv) {
     	
     	perspectiveTransform(centerTrans, center, invH);
     	perspectiveTransform(center, centerTrans, H2);
-    
+    	centerX = centerTrans[0].x;
+    	centerY = centerTrans[0].y;
     	Mat transform2;
     	cvtColor(transform, transform2, CV_GRAY2RGB);	
   		cvtColor(transform, transform, CV_GRAY2RGB);
@@ -163,7 +166,9 @@ int main(int argc, char** argv) {
    		cvtColor(transform, transform, CV_RGB2GRAY);
    		out = Mat::zeros( src_gray.rows, src_gray.cols, src_gray.type() );
 		transform.copyTo(out);
- 		    	  
+    // reset video
+ 	//for(;;){
+ 	//  src >> frame;  	  
   		/*Copiando a imagem para a saída da tela*/
   		//src_gray.copyTo(tela(Rect(0, 0, src_gray.cols, src_gray.rows)));
   		
@@ -185,28 +190,27 @@ void Threshold( int, void* ) {
 	Mat aux(out.rows, out.cols, CV_8U, Scalar(0));
 	
 	/*Threshold*/
-	cout << "center: (" << centerTrans[0].x << ", " << centerTrans[0].y << ")" << "\n";
+	//cout << "center: (" << centerX << ", " << centerY << ")" << "\n";
 	for(int i = 0; i < out.rows; i++) {
 		for(int j = 0; j < out.cols; j++) {
-			
-			if(((i-centerTrans[0].y)*(i-centerTrans[0].y) + (j-centerTrans[0].x)*(j-centerTrans[0].x)) - 72*72 == 0) { 
+			if( ((j-centerX)*(j-centerX)) + ((i-centerY)*(i-centerY)) <= 72*72) {
 				if (out.at<uchar>(i, j) < threshold_value) 
 					aux.at<uchar>(i, j) = BLACK;
 				else
 					aux.at<uchar>(i, j) = WHITE;
-			}//else
-				//aux.at<uchar>(i, j) = BLACK;
+			}else
+				aux.at<uchar>(i, j) = BLACK;
 		}
 	}
   
 	medianBlur(aux, aux, 5);
-	imshow( "VideoTool", aux);
+	//imshow( "VideoTool", aux);
   
-	//tracking(aux);
+	tracking(aux, track);
 
 }
 
-void tracking(Mat aux) {
+void tracking(Mat aux, Mat track) {
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 	int i;
@@ -221,13 +225,16 @@ void tracking(Mat aux) {
   	    float area = contourArea(contours[i], false);
   		if (area >= min_area && area <= max_area) {
   		  cout << "rato de area: " << area << " indice: " << i << "\n";
+  		  cout << "track: " << track.rows << " " << track.cols << "\n";
+  		  cout << "src: " << out.rows << " " << out.cols << "\n";
+  		  
   		  break; 
   		}
   	}
   	
   	if (i >= contours.size()){
   	  cout << "rato não encontrado\n";
-  	  imshow("VideoTool", tela);
+  	  //imshow("VideoTool", aux);
   	  return;
   	}
   		
@@ -239,14 +246,22 @@ void tracking(Mat aux) {
  	vector<Point2f> mc( contours.size() );
   	mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
   	
+  	track.at<uchar>(mc[i].y, mc[i].x) = WHITE;
+  	
+  	cvtColor(out, out, CV_GRAY2RGB);
   	//Circulando contornos e destacando centro de massa  
-  	Scalar color = Scalar(255,0,0);
-    drawContours( out, contours, i, color, 2, 8, hierarchy, 0, Point() );
-    circle( out, mc[i], 4, color, -1, 8, 0 );
-  
+  	Scalar colordraw = Scalar(255,255,0);
+  	Scalar color = Scalar(0,255,0);
+    drawContours( out, contours, i, colordraw, 1, 8, hierarchy, 0, Point() );
+    circle( out, mc[i], 2.5, color, -1);
+  	
+  	Mat track2;
+  	cvtColor(track, track2, CV_GRAY2RGB);
+	addWeighted(out, 1, track2, 1, 0.0, out); 
+  	  	
    	/*Copiando a imagen corrigida por ROI*/
     //aux.copyTo(tela(Rect(left1+tela.cols/2, top, aux.cols, aux.rows))); 
-  	out.copyTo(tela(Rect(tela.cols/2, 0, out.cols, out.rows)));
+  	//out.copyTo(tela(Rect(tela.cols/2, 0, out.cols, out.rows)));
  	 	
-	//imshow( "VideoTool", tela);
+	imshow( "VideoTool", out);
 }
