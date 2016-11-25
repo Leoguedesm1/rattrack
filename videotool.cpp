@@ -31,15 +31,12 @@ int threshold_value = 100; //Valor do Threshold
 int const max_value = 255; //Valor máximo da Trackbar
 double centerX, centerY;
 int cont = 1;
+int pause = 0;
 
 /*Area Bar*/
 int min_area = 0;
 int max_area = 300;
-int const max_area_value = 1500;
-
-/*Reset Bar*/
-int reset = 0;
-int const max_reset = 1;
+int const max_area_value = 500;
 
 /*Track Bar*/
 int rtrack = 1;
@@ -55,6 +52,8 @@ void Reset( int, void* udr );
 Mat paint();
 void le_video(VideoCapture& src, char** argv);
 void cria_janela(VideoCapture src, userdatareset& u);
+void Pause(int, void*);
+void Sair(int, void*);
 
 int main(int argc, char** argv) {
     VideoCapture src; //Video de entrada
@@ -87,22 +86,16 @@ int main(int argc, char** argv) {
 }
 
 void Reset( int , void* udr) {
-	if(reset == 0 || reset == 1) {
-		userdatareset u = *((userdatareset*)udr); 
+	userdatareset u = *((userdatareset*)udr); 
 		
-		resizeWindow( "VideoTool", 1000, 1200);
+	cont = 1;
+	track = Scalar(0);
 		
-		cont = 1;
-		track = Scalar(0);
-		
-		u.src->set(CAP_PROP_POS_MSEC, 380000);
-	}
+	u.src->set(CAP_PROP_POS_MSEC, 380000);
 }
 
 void Threshold( int, void* ) {
 	Mat aux(out_perspective.rows, out_perspective.cols, CV_8U, Scalar(0));
-	
-	resizeWindow( "VideoTool", 1000, 1200);
 	
 	/*Threshold*/
 	for(int i = 0; i < out_perspective.rows; i++) {
@@ -127,8 +120,6 @@ void tracking(Mat aux, Mat track) {
 	int i;
 	float area;
 	Mat out_perspective1;
-	
-	resizeWindow( "VideoTool", 1000, 1200);
 	
 	cvtColor(out_perspective, out_perspective1, CV_GRAY2RGB);
 	findContours( aux, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -270,7 +261,6 @@ void acha_perspectiva(VideoCapture src, Mat& transform, Mat& H2, Size warpSize, 
    
 }
 
-
 void aplica_perspectiva(Mat& transform, Mat& H2, Size warpSize) {
 	Mat src_gray;
 	/*Passando frame do vídeo para GrayScale*/
@@ -287,16 +277,21 @@ void aplica_perspectiva(Mat& transform, Mat& H2, Size warpSize) {
 void processa_video(VideoCapture src, Mat& transform, Mat& H2, Size warpSize) {
 	/*Loop*/
     for( ; ; ) {
-    	src >> src_frame;
+    	 
+        if(pause == 1) {
+        	waitKey(5);
+        	continue;
+        } else	
+    		src >> src_frame;
     	
     	if(src_frame.empty())
             break;
-            
+           
         aplica_perspectiva(transform, H2, warpSize);
             
-  		/*Inicializando a função Thresholding*/
+ 		/*Inicializando a função Thresholding*/
  		Threshold( 0, 0 );
- 		
+ 			
         waitKey(20); // waits to display frame
     }
 }
@@ -312,15 +307,34 @@ void le_video(VideoCapture& src, char** argv) {
 
 void cria_janela(VideoCapture src, userdatareset& u) {
 	/*Janela*/
-    namedWindow( "VideoTool", WINDOW_NORMAL );  	
-  
-    /*Trackbar reseta o video*/
-    createTrackbar( "Reset", "VideoTool", &reset, max_reset, Reset, (void*) (&u) );
+    namedWindow( "VideoTool", WINDOW_NORMAL ); 
+    resizeWindow( "VideoTool", 1000, 600); 	
+	  
+    /*Button reseta o video*/
+    createButton("Reset", Reset, (void*) (&u), CV_PUSH_BUTTON);
+    /*Button pausa o video*/
+    createButton("Pause", Pause, NULL, CV_PUSH_BUTTON);
+    
+    createButton("Sair", Sair, NULL, CV_PUSH_BUTTON);
+    
  	/*Criando a Trackbar para alterar o valor do Thresholding*/
-    createTrackbar( "Threshold", "VideoTool", &threshold_value, max_value, Threshold );
+    createTrackbar( "Threshold", (char*) NULL, &threshold_value, max_value, Threshold );
     /*Trackbars para a area do rato*/
-    createTrackbar( "Area Min", "VideoTool", &min_area, max_area_value, Threshold );    
-  	createTrackbar( "Area Max", "VideoTool", &max_area, max_area_value, Threshold );
+    createTrackbar( "Area Min", (char*) NULL, &min_area, max_area_value, Threshold );    
+  	createTrackbar( "Area Max", (char*) NULL, &max_area, max_area_value, Threshold );
   	/*Tracbars raio tracking*/
-  	createTrackbar( "Raio Track", "VideoTool", &rtrack, max_rtrack_value, Threshold );
+  	createTrackbar( "Raio Track", (char*) NULL, &rtrack, max_rtrack_value, Threshold );
+  	
+  	
+}
+
+void Pause(int, void*) {
+	if(pause == 0)
+		pause = 1;
+	else
+		pause = 0;
+}
+
+void Sair(int, void*) {
+	exit(1);
 }
