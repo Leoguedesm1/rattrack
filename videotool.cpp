@@ -133,9 +133,16 @@ void tracking(Mat aux, Mat track) {
   	}
   	
   	if (i >= contours.size() || area == 0){
-  	  cout << "rato não encontrado\n";
-  	  imshow("VideoTool", tela);
-  	  return;
+  		cout << "rato não encontrado\n";
+  		Mat p = paint();
+  		addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1); 
+  	  	warpPerspective(out_perspective1, out, invH, src_frame.size());
+  		
+  		/*Copiando a imagen corrigida por ROI*/ 
+  		out.copyTo(tela(Rect(0, 0, out.cols, out.rows)));
+  		out_perspective1.copyTo(tela(Rect(out.cols, 0, out_perspective1.cols, out_perspective1.rows)));
+  		imshow("VideoTool", tela);
+  		return;
   	}else{
   		
   		/// Get the moments
