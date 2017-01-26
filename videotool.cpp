@@ -7,6 +7,7 @@
 #include "opencv2/opencv.hpp"
 #include <iostream>
 #include <limits>
+#include <QFileDialog>
 
 const double INF = std::numeric_limits<double>::infinity();
 const double raio = 112;
@@ -54,6 +55,7 @@ void le_video(VideoCapture& src, char** argv);
 void cria_janela(VideoCapture src, userdatareset& u);
 void Pause(int, void*);
 void Sair(int, void*);
+void Save(int, void*);
 
 int main(int argc, char** argv) {
     VideoCapture src; //Video de entrada
@@ -322,8 +324,9 @@ void cria_janela(VideoCapture src, userdatareset& u) {
     /*Button pausa o video*/
     createButton("Pause", Pause, NULL, CV_PUSH_BUTTON);
     
-    createButton("Sair", Sair, NULL, CV_PUSH_BUTTON);
-    
+    createButton("Save", Save, NULL, CV_PUSH_BUTTON);
+  	createButton("Sair", Sair, NULL, CV_PUSH_BUTTON);
+  	
  	/*Criando a Trackbar para alterar o valor do Thresholding*/
     createTrackbar( "Threshold", (char*) NULL, &threshold_value, max_value, Threshold );
     /*Trackbars para a area do rato*/
@@ -344,4 +347,8 @@ void Pause(int, void*) {
 
 void Sair(int, void*) {
 	exit(1);
+}
+
+void Save(int, void*) {
+	
 }
