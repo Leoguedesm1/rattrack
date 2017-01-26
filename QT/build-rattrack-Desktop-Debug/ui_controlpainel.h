@@ -43,6 +43,8 @@ public:
     QLabel *lbTeste;
     QPushButton *btSave;
     QFrame *line_7;
+    QPushButton *btCircle;
+    QFrame *line_8;
 
     void setupUi(QWidget *controlpainel)
     {
@@ -71,7 +73,7 @@ public:
         btReset->setIcon(icon1);
         btSair = new QPushButton(controlpainel);
         btSair->setObjectName(QString::fromUtf8("btSair"));
-        btSair->setGeometry(QRect(180, 10, 40, 40));
+        btSair->setGeometry(QRect(220, 10, 40, 40));
         QIcon icon2;
         icon2.addFile(QString::fromUtf8(":/new/prefix1/sair.png"), QSize(), QIcon::Normal, QIcon::Off);
         btSair->setIcon(icon2);
@@ -119,22 +121,22 @@ public:
         line_6->setFrameShadow(QFrame::Sunken);
         label = new QLabel(controlpainel);
         label->setObjectName(QString::fromUtf8("label"));
-        label->setGeometry(QRect(250, 10, 59, 16));
+        label->setGeometry(QRect(290, 10, 59, 16));
         label_2 = new QLabel(controlpainel);
         label_2->setObjectName(QString::fromUtf8("label_2"));
-        label_2->setGeometry(QRect(365, 30, 52, 16));
+        label_2->setGeometry(QRect(405, 30, 52, 16));
         lbFile = new QLabel(controlpainel);
         lbFile->setObjectName(QString::fromUtf8("lbFile"));
-        lbFile->setGeometry(QRect(320, 10, 691, 16));
+        lbFile->setGeometry(QRect(360, 10, 691, 16));
         lbNome = new QLabel(controlpainel);
         lbNome->setObjectName(QString::fromUtf8("lbNome"));
-        lbNome->setGeometry(QRect(423, 30, 281, 16));
+        lbNome->setGeometry(QRect(463, 30, 281, 16));
         label_3 = new QLabel(controlpainel);
         label_3->setObjectName(QString::fromUtf8("label_3"));
-        label_3->setGeometry(QRect(251, 30, 43, 16));
+        label_3->setGeometry(QRect(291, 30, 43, 16));
         lbTeste = new QLabel(controlpainel);
         lbTeste->setObjectName(QString::fromUtf8("lbTeste"));
-        lbTeste->setGeometry(QRect(300, 30, 59, 16));
+        lbTeste->setGeometry(QRect(340, 30, 59, 16));
         btSave = new QPushButton(controlpainel);
         btSave->setObjectName(QString::fromUtf8("btSave"));
         btSave->setGeometry(QRect(140, 10, 40, 40));
@@ -146,6 +148,17 @@ public:
         line_7->setGeometry(QRect(220, 10, 3, 40));
         line_7->setFrameShape(QFrame::VLine);
         line_7->setFrameShadow(QFrame::Sunken);
+        btCircle = new QPushButton(controlpainel);
+        btCircle->setObjectName(QString::fromUtf8("btCircle"));
+        btCircle->setGeometry(QRect(180, 10, 40, 40));
+        QIcon icon5;
+        icon5.addFile(QString::fromUtf8(":/new/prefix1/findcircle.png"), QSize(), QIcon::Normal, QIcon::Off);
+        btCircle->setIcon(icon5);
+        line_8 = new QFrame(controlpainel);
+        line_8->setObjectName(QString::fromUtf8("line_8"));
+        line_8->setGeometry(QRect(260, 10, 3, 40));
+        line_8->setFrameShape(QFrame::VLine);
+        line_8->setFrameShadow(QFrame::Sunken);
 
         retranslateUi(controlpainel);
 
@@ -167,6 +180,7 @@ public:
         label_3->setText(QApplication::translate("controlpainel", "<html><head/><body><p><span style=\" font-weight:600;\">Teste:</span></p></body></html>", 0, QApplication::UnicodeUTF8));
         lbTeste->setText(QString());
         btSave->setText(QString());
+        btCircle->setText(QString());
     } // retranslateUi
 
 };
