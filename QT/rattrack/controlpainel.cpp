@@ -6,7 +6,7 @@
 #include <QFileDialog>
 
 const double INF = std::numeric_limits<double>::infinity();
-const double raio = 112;
+double raio = 112;
 
 /*Definindo valores de pixels BRANCO e PRETO*/
 #define WHITE 255
@@ -15,10 +15,10 @@ const double raio = 112;
 VideoCapture src;
 userdatareset u;
 
-Mat src_frame, out, out_perspective, tela, track, invH, out_original;
+Mat src_frame, out, out_perspective, tela, track, invH, out_original, transform_mat;
 double centerX, centerY;
 int cont = 1;
-int pause = 0;
+QTimer *tmrTimer;
 
 controlpainel::controlpainel(QWidget *parent) :
     QWidget(parent),
@@ -31,6 +31,7 @@ controlpainel::controlpainel(QWidget *parent) :
     ui->btConfig->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btSave->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btSair->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
+    ui->btCircle->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->lbNome->setText(QString::fromStdString(animal));
     ui->lbTeste->setText(QString::number(teste));
     ui->lbFile->setText(argv);
@@ -171,7 +172,7 @@ Mat controlpainel::paint() {
     return p;
 }
 
-void controlpainel::acha_perspectiva(Mat& transform, Mat& H2, Size warpSize, int FHEIGHT, int FWIDTH) {
+void controlpainel::acha_perspectiva(Mat& transform_mat, Mat& H2, Size warpSize, int FHEIGHT, int FWIDTH) {
 
     src >> src_frame;
 
@@ -230,7 +231,7 @@ void controlpainel::acha_perspectiva(Mat& transform, Mat& H2, Size warpSize, int
 
     H2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
 
-    warpPerspective(src_gray, transform, H2, warpSize);
+    warpPerspective(src_gray, transform_mat, H2, warpSize);
 
     /*Pegando o centro do círculo da imagem transformada*/
     centerTrans.push_back(Point2f((float)240/( (float) wwidth)*FWIDTH, (float)189.5/((float) wheight)*FHEIGHT));
@@ -250,11 +251,11 @@ void controlpainel::aplica_perspectiva() {
     cvtColor(src_frame, src_gray, cv::COLOR_RGB2GRAY);
 
     /*Aplicando transformação de perspectiva*/
-    warpPerspective(src_gray, transform, H2, warpSize);
+    warpPerspective(src_gray, transform_mat, H2, warpSize);
 
     /*Copiando matrix de transformação para out*/
     out_perspective = Mat::zeros( src_frame.rows, src_frame.cols, CV_8U );
-    transform.copyTo(out_perspective);
+    transform_mat.copyTo(out_perspective);
 }
 
 void controlpainel::processa_video() {
@@ -288,7 +289,7 @@ void controlpainel::mostra_tela(Mat& out_perspective1) {
 
 void controlpainel::rattrack() {
 
-    transform = Mat::zeros( src_frame.rows, src_frame.cols, CV_8U );
+    transform_mat = Mat::zeros( src_frame.rows, src_frame.cols, CV_8U );
     FHEIGHT = src.get(CV_CAP_PROP_FRAME_HEIGHT);
     FWIDTH = src.get(CV_CAP_PROP_FRAME_WIDTH);
 
@@ -298,7 +299,7 @@ void controlpainel::rattrack() {
     warpSize = Size(FWIDTH, FHEIGHT);
 
     /*Calcula a Matriz H2*/
-    acha_perspectiva(transform, H2, warpSize, FHEIGHT, FWIDTH);
+    acha_perspectiva(transform_mat, H2, warpSize, FHEIGHT, FWIDTH);
 
     /*Aplica a matriz H2 em cada frame do video*/
     tmrTimer = new QTimer(this);
@@ -313,5 +314,13 @@ void controlpainel::on_btSave_clicked()
 
     ds = new DialogSave();
     ds->show();
+
+}
+
+void controlpainel::on_btCircle_clicked()
+{
+    tmrTimer->stop();
+    dfc = new dialogFindCircle();
+    dfc->show();
 
 }

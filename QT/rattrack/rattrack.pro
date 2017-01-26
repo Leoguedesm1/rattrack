@@ -28,17 +28,20 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     controlpainel.cpp \
     dialogconfig.cpp \
-    dialogsave.cpp
+    dialogsave.cpp \
+    dialogfindcircle.cpp
 
 HEADERS  += mainwindow.h \
     controlpainel.h \
     dialogconfig.h \
-    dialogsave.h
+    dialogsave.h \
+    dialogfindcircle.h
 
 FORMS    += mainwindow.ui \
     controlpainel.ui \
     dialogconfig.ui \
-    dialogsave.ui
+    dialogsave.ui \
+    dialogfindcircle.ui
 
 INCLUDEPATH += /usr/local/include/opencv
 LIBS += `pkg-config opencv --libs`

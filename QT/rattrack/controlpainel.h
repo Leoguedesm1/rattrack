@@ -7,6 +7,7 @@
 #include <QToolBar>
 #include "dialogconfig.h"
 #include "dialogsave.h"
+#include "dialogfindcircle.h"
 
 #include <stdio.h>
 #include <algorithm>
@@ -38,6 +39,11 @@ extern QString argv;
 extern Mat tela;
 extern Mat out_original;
 extern Mat out;
+extern double raio;
+extern Mat transform_mat;
+extern QTimer *tmrTimer;
+extern int cont;
+extern Mat track;
 
 
 namespace Ui {
@@ -51,7 +57,7 @@ class controlpainel : public QWidget
 public:
     explicit controlpainel(QWidget *parent = 0);
     ~controlpainel();
-    Mat H2, transform; //H2 = Homography, transform = perspectiva
+    Mat H2; //H2 = Homography, transform = perspectiva
     int FHEIGHT; //FHEIGHT = Altura do video
     int FWIDTH; //FWIDTH = Largura do video
     Size warpSize; //warpSize = tamanho do warp
@@ -61,6 +67,8 @@ private slots:
     void on_btReset_clicked();
     void on_btSair_clicked();
     void on_btConfig_clicked();
+    void on_btSave_clicked();
+    void on_btCircle_clicked();
 
     void acha_perspectiva(Mat& transform, Mat& H2, Size warpSize, int FHEIGHT, int FWIDTH);
     void aplica_perspectiva();
@@ -68,20 +76,16 @@ private slots:
     void Threshold( int, void* );
     void tracking(Mat aux, Mat track);
     static Mat paint();
-    //static void Save(int, void*);
     void rattrack();
     void mostra_tela(Mat& out_perspective1);
-    //void cria_janela(VideoCapture src, userdatareset& u);
-
-    void on_btSave_clicked();
 
 private:
     Ui::controlpainel *ui;
     dialogConfig *dc;
     DialogSave *ds;
+    dialogFindCircle *dfc;
     QImage qimg;
-    QTimer *tmrTimer;
-    QToolBar *fileBar;
+
 };
 
 #endif // CONTROLPAINEL_H

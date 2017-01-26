@@ -6,6 +6,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QString>
+#include <QLocale>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ DialogSave::DialogSave(QWidget *parent) :
     ui(new Ui::DialogSave)
 {
     ui->setupUi(this);
+    QLocale::setDefault(QLocale(QLocale::Portuguese, QLocale::Brazil));
 }
 
 DialogSave::~DialogSave()
@@ -23,22 +25,10 @@ DialogSave::~DialogSave()
 
 void DialogSave::on_btOK_clicked()
 {
-    //UTF-8 ASCII Table
-    const char tA[] = {192, 193, 194, 195}; //A
-    const char ta[] = {225,226,227,228}; //á,â,ã,à
-    const char tE[] = {201, 202}; //E
-    const char te[] = {233,234}; //é,ê
-    const char tI[] = {205};
-    const char ti[] = {237}; //í
-    const char tO[] = {211, 212, 213};
-    const char to[] = {243,244,245}; //ó,ô,õ
-    const char tU[] = {218, 220};
-    const char tu[] = {250,252}; //ú,ü
-    const char tC[] = {199};
-    const char tc[] = {231}; //ç
 
-    QString dirOriginal;
+    QString dirOriginal, dir;
     string save;
+
 
     if(ui->cbTela->isChecked() != true && ui->cbOriginal->isChecked() != true && ui->cbPerspectiva->isChecked() != true) {
         QMessageBox::critical(this, tr ("Erro"), tr ("Escolha uma das opcoes."));
@@ -49,21 +39,7 @@ void DialogSave::on_btOK_clicked()
                                                     | QFileDialog::DontResolveSymlinks);
     }
 
-    QString dir = dirOriginal.replace(" ", "\\ ");
-
-    for (unsigned int j = 0; j < sizeof(tA); j++) dir.replace(tA[j],"A");
-    for (unsigned int j = 0; j < sizeof(tE); j++) dir.replace(tE[j],"E");
-    for (unsigned int j = 0; j < sizeof(tI); j++) dir.replace(tI[j],"I");
-    for (unsigned int j = 0; j < sizeof(tO); j++) dir.replace(tO[j],"O");
-    for (unsigned int j = 0; j < sizeof(tU); j++) dir.replace(tU[j],"U");
-    for (unsigned int j = 0; j < sizeof(tC); j++) dir.replace(tC[j],"C");
-    for (unsigned int j = 0; j < sizeof(ta); j++) dir.replace(tA[j],"a");
-    for (unsigned int j = 0; j < sizeof(te); j++) dir.replace(tE[j],"e");
-    for (unsigned int j = 0; j < sizeof(ti); j++) dir.replace(tI[j],"i");
-    for (unsigned int j = 0; j < sizeof(to); j++) dir.replace(tO[j],"o");
-    for (unsigned int j = 0; j < sizeof(tu); j++) dir.replace(tU[j],"u");
-    for (unsigned int j = 0; j < sizeof(tc); j++) dir.replace(tC[j],"c");
-
+    dir = dirOriginal.toUtf8().data();
 
     if(ui->cbTela->isChecked() == true) {
         stringstream save1;
@@ -86,8 +62,7 @@ void DialogSave::on_btOK_clicked()
         imwrite(save, out_original);
     }
 
-    cout << save << "\n";
-    exit(1);
+    QMessageBox::information(this, tr ("Salvar"), tr("Arquivos salvos com sucesso!"));
     this->close();
 }
 

@@ -6,5 +6,6 @@
         <file>reset.png</file>
         <file>sair.png</file>
         <file>save.png</file>
+        <file>findcircle.png</file>
     </qresource>
 </RCC>
