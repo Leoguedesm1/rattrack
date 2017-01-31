@@ -59,3 +59,19 @@ void dialogConfig::on_tbRaio_valueChanged(int value)
     rtrack = value;
     ui->lbRaio->setText(QString::number(rtrack));
 }
+
+void dialogConfig::on_btDefault_clicked()
+{
+    threshold_value = 100;
+    min_area = 0;
+    max_area = 300;
+    rtrack = 1;
+    ui->tbThresh->setValue(threshold_value);
+    ui->tbMinArea->setValue(min_area);
+    ui->tbMaxArea->setValue(max_area);
+    ui->tbRaio->setValue(rtrack);
+    ui->lbThresh->setText(QString::number(threshold_value));
+    ui->lbMin->setText(QString::number(min_area));
+    ui->lbMax->setText(QString::number(max_area));
+    ui->lbRaio->setText(QString::number(rtrack));
+}
