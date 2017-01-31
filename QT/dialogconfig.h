@@ -36,6 +36,8 @@ private slots:
 
     void on_tbRaio_valueChanged(int value);
 
+    void on_btDefault_clicked();
+
 private:
     Ui::dialogConfig *ui;
 };
