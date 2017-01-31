@@ -60,7 +60,8 @@ void MainWindow::on_bOK_clicked() {
    }
 
     if(ui->rbCam->isChecked()) {
-        //Conectar-se a camera...
+        le_video_cam(src, argv.toAscii().data());
+        openControlPainel();
     }
     else if(ui->rbFile->isChecked()) {
         if(argv.isEmpty()) {
@@ -83,6 +84,6 @@ void MainWindow::le_video_file(VideoCapture& src, string argv) {
 }
 
 void MainWindow::le_video_cam(VideoCapture &src, string argv){
-
+    src.open(0);
 }
 
