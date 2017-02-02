@@ -44,6 +44,7 @@ extern Mat transform_mat;
 extern QTimer *tmrTimer;
 extern int cont;
 extern Mat track;
+extern Mat p;
 
 
 namespace Ui {
