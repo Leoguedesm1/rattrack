@@ -27,6 +27,7 @@ controlpainel::controlpainel(QWidget *parent) :
     ui->setupUi(this);
     this->showMaximized();
     ui->btPlay->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
+    ui->btPlay->setToolTip("Pause");
     ui->btReset->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btConfig->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btSave->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
@@ -51,11 +52,13 @@ void controlpainel::on_btPlay_clicked() {
         QPixmap pixmap(":/new/prefix1/play.png");
         QIcon ButtonIcon(pixmap);
         ui->btPlay->setIcon(ButtonIcon);
+        ui->btPlay->setToolTip("Play");
     }else{
         tmrTimer->start();
         QPixmap pixmap(":/new/prefix1/pause.png");
         QIcon ButtonIcon(pixmap);
         ui->btPlay->setIcon(ButtonIcon);
+        ui->btPlay->setToolTip("Pause");
    }
 }
 
@@ -120,7 +123,7 @@ void controlpainel::tracking(Mat aux, Mat track) {
         addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1);
         warpPerspective(out_perspective1, out, invH, src_frame.size());
         out_original = out_perspective1;
-        mostra_tela(p);
+        mostra_tela(out_perspective1);
 
         return;
     }else{
@@ -144,7 +147,7 @@ void controlpainel::tracking(Mat aux, Mat track) {
         warpPerspective(out_perspective1, out, invH, src_frame.size());
 
         out_original = out_perspective1;
-        mostra_tela(p);
+        mostra_tela(out_perspective1);
 
     }
 }
