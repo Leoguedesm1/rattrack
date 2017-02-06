@@ -3,8 +3,6 @@
 
 #include <QMainWindow>
 #include <QString>
-#include "controlpainel.h"
-
 
 #include <stdio.h>
 #include <algorithm>
@@ -49,7 +47,6 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    controlpainel *controlPainel;
    };
 
 #endif // MAINWINDOW_H
