@@ -132,6 +132,7 @@ void controlpainel::tracking(Mat aux, Mat track) {
         Mat p = paint();
         addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1);
         warpPerspective(out_perspective1, out, invH, src_frame.size());
+        warpPerspective(p, p, invH, p.size());
         out_original = out_perspective1;
         mostra_tela(out_perspective1);
 
