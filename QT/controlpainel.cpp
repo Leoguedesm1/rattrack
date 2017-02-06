@@ -4,6 +4,8 @@
 #include <QLabel>
 #include <QWidget>
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QCloseEvent>
 
 const double INF = std::numeric_limits<double>::infinity();
 double raio = 112;
@@ -75,7 +77,15 @@ void controlpainel::on_btReset_clicked() {
 }
 
 void controlpainel::on_btSair_clicked(){
-    exit(1);
+    QCloseEvent *event = new QCloseEvent;
+    this->closeEvent(event);
+}
+
+void controlpainel::closeEvent(QCloseEvent *event) {
+    tmrTimer->stop();
+    this->close();
+    this->mainParent->show();
+    event->accept();
 }
 
 /*RATRACK*/
@@ -264,8 +274,12 @@ void controlpainel::aplica_perspectiva() {
 void controlpainel::processa_video() {
     src >> src_frame;
 
-    //if(src_frame.empty())
-        // break;
+    if(src_frame.empty()) {
+         tmrTimer->stop();
+         QMessageBox::information(this, tr ("Teste"), tr("O video terminou."));
+         QCloseEvent *event = new QCloseEvent;
+         this->closeEvent(event);
+     }
 
     aplica_perspectiva();
 
