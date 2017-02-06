@@ -16,9 +16,9 @@ public:
     ~DialogSave();
 
 private slots:
-    void on_btOK_clicked();
+    void on_btSalvar_clicked();
 
-    void on_btCancel_clicked();
+    void on_btOK_clicked();
 
 private:
     Ui::DialogSave *ui;
