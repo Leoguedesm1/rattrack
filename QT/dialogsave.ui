@@ -6,74 +6,104 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>283</width>
+    <width>352</width>
     <height>194</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Salvar</string>
   </property>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>11</x>
+     <y>171</y>
+     <width>49</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Status:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbStatus">
+   <property name="geometry">
+    <rect>
+     <x>71</x>
+     <y>171</y>
+     <width>241</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btSalvar">
+   <property name="geometry">
+    <rect>
+     <x>94</x>
+     <y>131</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Salvar</string>
+   </property>
+  </widget>
   <widget class="QWidget" name="">
    <property name="geometry">
     <rect>
-     <x>50</x>
-     <y>30</y>
-     <width>170</width>
-     <height>132</height>
+     <x>120</x>
+     <y>20</y>
+     <width>111</width>
+     <height>100</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout_2">
+   <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QCheckBox" name="cbTela">
-        <property name="text">
-         <string>Tela Inteira</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="cbOriginal">
-        <property name="text">
-         <string>Original</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="cbPerspectiva">
-        <property name="text">
-         <string>Perspectiva</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="cbPath">
-        <property name="text">
-         <string>Caminho</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QCheckBox" name="cbTela">
+      <property name="text">
+       <string>Tela Inteira</string>
+      </property>
+     </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QPushButton" name="btOK">
-        <property name="text">
-         <string>OK</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btCancel">
-        <property name="text">
-         <string>Cancelar</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QCheckBox" name="cbOriginal">
+      <property name="text">
+       <string>Original</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="cbPerspectiva">
+      <property name="text">
+       <string>Perspectiva</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="cbPath">
+      <property name="text">
+       <string>Caminho</string>
+      </property>
+     </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QPushButton" name="btOK">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>131</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>OK</string>
+   </property>
   </widget>
  </widget>
  <resources/>
