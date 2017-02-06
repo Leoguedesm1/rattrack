@@ -8,6 +8,7 @@
 #include "dialogconfig.h"
 #include "dialogsave.h"
 #include "dialogfindcircle.h"
+#include "mainwindow.h"
 
 #include <stdio.h>
 #include <algorithm>
@@ -56,12 +57,16 @@ class controlpainel : public QWidget
     Q_OBJECT
 
 public:
+    MainWindow *mainParent;
     explicit controlpainel(QWidget *parent = 0);
     ~controlpainel();
     Mat H2; //H2 = Homography, transform = perspectiva
     int FHEIGHT; //FHEIGHT = Altura do video
     int FWIDTH; //FWIDTH = Largura do video
     Size warpSize; //warpSize = tamanho do warp
+
+protected:
+    void closeEvent(QCloseEvent *event);
 
 private slots:
     void on_btPlay_clicked();
@@ -86,7 +91,6 @@ private:
     DialogSave *ds;
     dialogFindCircle *dfc;
     QImage qimg;
-
-};
+ };
 
 #endif // CONTROLPAINEL_H
