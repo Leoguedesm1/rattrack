@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "controlpainel.h"
 
 #include <QFileDialog>
 #include <QFile>
@@ -9,6 +10,8 @@ QString argv;
 string animal = " ";
 int teste = 0;
 
+controlpainel *controlChild;
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -17,8 +20,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->bSelectFile->setEnabled(false);
     ui->lbFIle->setEnabled(false);
     u.src = &src;
-    //connect(ui->bOK, SIGNAL(clicked(bool)), this, SLOT(openControlPainel()));
-
 }
 
 MainWindow::~MainWindow()
@@ -27,9 +28,15 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::openControlPainel() {
-    this->close();
-    controlPainel = new controlpainel();
-    controlPainel->show();
+    if (!controlChild) {
+        controlChild = new controlpainel();
+    }
+
+    if(controlChild) {
+        controlChild->mainParent = this;
+        controlChild->show();
+        this->hide();
+    }
 }
 
 void MainWindow::on_rbCam_clicked() {
