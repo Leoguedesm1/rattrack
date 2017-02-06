@@ -1,6 +1,7 @@
 #include "dialogsave.h"
 #include "ui_dialogsave.h"
 #include "controlpainel.h"
+#include <wait.h>
 
 #include <string>
 #include <QFileDialog>
@@ -16,6 +17,7 @@ DialogSave::DialogSave(QWidget *parent) :
 {
     ui->setupUi(this);
     QLocale::setDefault(QLocale(QLocale::Portuguese, QLocale::Brazil));
+    ui->lbStatus->setText("Escolha as opções!");
 }
 
 DialogSave::~DialogSave()
@@ -23,7 +25,7 @@ DialogSave::~DialogSave()
     delete ui;
 }
 
-void DialogSave::on_btOK_clicked()
+void DialogSave::on_btSalvar_clicked()
 {
 
     QString dirTela = "", dirOriginal = "", dirPerspectiva = "", dirPath = "";
@@ -40,10 +42,12 @@ void DialogSave::on_btOK_clicked()
             save = save1.str();
             dirTela = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
 
-            if(dirTela != "") {
+            if(dirTela != ".bmp") {
                 dirTela = dirTela.toUtf8().data();
                 imwrite(dirTela.toAscii().data(), tela);
-                QMessageBox::information(this, tr ("Salvar"), tr("Arquivo salvo com sucesso!"));
+                ui->lbStatus->setText("Imagem da tela salva com sucesso!");
+            }else{
+                cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
             }
         }
 
@@ -53,11 +57,12 @@ void DialogSave::on_btOK_clicked()
             save = save1.str();
             dirOriginal = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
 
-            if(dirOriginal != "") {
+            if(dirOriginal != ".bmp") {
                 dirOriginal = dirOriginal.toUtf8().data();
                 imwrite(dirOriginal.toAscii().data(), out);
-                QMessageBox::information(this, tr ("Salvar"), tr("Arquivo salvo com sucesso!"));
-            }
+                ui->lbStatus->setText("Imagem Original salva com sucesso!");            }
+        }else{
+            cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
         }
 
         if(ui->cbPerspectiva->isChecked() == true) {
@@ -66,10 +71,12 @@ void DialogSave::on_btOK_clicked()
             save = save1.str();
             dirPerspectiva = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
 
-            if(dirPerspectiva != "") {
+            if(dirPerspectiva != ".bmp") {
                 dirPerspectiva = dirPerspectiva.toUtf8().data();
                 imwrite(dirPerspectiva.toAscii().data(), out);
-                QMessageBox::information(this, tr ("Salvar"), tr("Arquivo salvo com sucesso!"));
+                ui->lbStatus->setText("Imagem Perspectiva salva com sucesso!");
+            }else{
+                cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
             }
         }
 
@@ -79,18 +86,19 @@ void DialogSave::on_btOK_clicked()
             save = save1.str();
             dirPath = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
 
-            if(dirPath != "") {
+            if(dirPath != ".bmp") {
                 dirPath = dirPath.toUtf8().data();
                 imwrite(dirPath.toAscii().data(), p);
-                QMessageBox::information(this, tr ("Salvar"), tr("Arquivo salvo com sucesso!"));
+                ui->lbStatus->setText("Imagem do caminho salva com sucesso!");
+            }else{
+                cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
             }
         }
 
-        this->close();
     }
 }
 
-void DialogSave::on_btCancel_clicked()
+void DialogSave::on_btOK_clicked()
 {
     this->close();
 }
