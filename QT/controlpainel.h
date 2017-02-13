@@ -47,7 +47,6 @@ extern int cont;
 extern Mat track;
 extern Mat p;
 
-
 namespace Ui {
 class controlpainel;
 }
@@ -75,6 +74,7 @@ private slots:
     void on_btConfig_clicked();
     void on_btSave_clicked();
     void on_btCircle_clicked();
+    void reset_all();
 
     void acha_perspectiva(Mat& transform, Mat& H2, Size warpSize, int FHEIGHT, int FWIDTH);
     void aplica_perspectiva();
