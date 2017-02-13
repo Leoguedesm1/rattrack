@@ -85,6 +85,8 @@ private slots:
     void rattrack();
     void mostra_tela(Mat& out_perspective1);
 
+    void on_btVoltar_clicked();
+
 private:
     Ui::controlpainel *ui;
     dialogConfig *dc;
