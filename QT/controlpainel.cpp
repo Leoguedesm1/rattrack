@@ -47,6 +47,17 @@ controlpainel::~controlpainel()
     delete ui;
 }
 
+void controlpainel::reset_all() {
+    ui->lbNome->setText("");
+    ui->lbTeste->setText("");
+    ui->lbFile->setText("");
+    src = 0;
+    u.src = NULL;
+    argv = "";
+    if(tmrTimer->isActive() == true) tmrTimer->stop();
+    ui->lbTela->setPixmap(NULL);
+}
+
 void controlpainel::on_btPlay_clicked() {
 
     if(tmrTimer->isActive() == true) {
@@ -77,6 +88,7 @@ void controlpainel::on_btReset_clicked() {
 }
 
 void controlpainel::on_btSair_clicked(){
+    reset_all();
     QCloseEvent *event = new QCloseEvent;
     this->closeEvent(event);
 }
@@ -278,6 +290,7 @@ void controlpainel::processa_video() {
     if(src_frame.empty()) {
          tmrTimer->stop();
          QMessageBox::information(this, tr ("Teste"), tr("O video terminou."));
+         reset_all();
          QCloseEvent *event = new QCloseEvent;
          this->closeEvent(event);
      }
