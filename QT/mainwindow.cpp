@@ -28,20 +28,27 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::openControlPainel() {
-    if (!controlChild) {
-        controlChild = new controlpainel();
-    }
+    controlChild = NULL;
+    controlChild = new controlpainel();
+    controlChild->mainParent = this;
+    all_reset();
+    controlChild->show();
+    this->hide();
+}
 
-    if(controlChild) {
-        controlChild->mainParent = this;
-        controlChild->show();
-        this->hide();
-    }
+void MainWindow::all_reset() {
+    ui->animalName->setText("");
+    ui->lbFIle->setText("Sem arquivos...");
+    ui->lbFIle->setEnabled(false);
+    ui->rbCam->setEnabled(true);
+    ui->bSelectFile->setEnabled(false);
+    ui->rbCam->setChecked(true);
+    ui->spinBox->setValue(0);
 }
 
 void MainWindow::on_rbCam_clicked() {
     ui->bSelectFile->setEnabled(false);
-    ui->lbFIle->setText(" ");
+    ui->lbFIle->setText("Sem arquivos...");
     ui->lbFIle->setEnabled(false);
 }
 
