@@ -20,7 +20,6 @@
 using namespace cv;
 using namespace std;
 
-
 namespace Ui {
 class MainWindow;
 }
@@ -44,6 +43,7 @@ private slots:
     void on_bOK_clicked();
     void le_video_file(VideoCapture& src, string argv);
     void le_video_cam(VideoCapture& src, string argv);
+    void all_reset();
 
 private:
     Ui::MainWindow *ui;
