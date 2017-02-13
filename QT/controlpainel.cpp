@@ -35,6 +35,7 @@ controlpainel::controlpainel(QWidget *parent) :
     ui->btSave->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btSair->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->btCircle->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
+    ui->btVoltar->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
     ui->lbNome->setText(QString::fromStdString(animal));
     ui->lbTeste->setText(QString::number(teste));
     ui->lbFile->setText(argv);
@@ -87,7 +88,7 @@ void controlpainel::on_btReset_clicked() {
     u.src->set(CAP_PROP_POS_MSEC, 380000);
 }
 
-void controlpainel::on_btSair_clicked(){
+void controlpainel::on_btVoltar_clicked(){
     reset_all();
     QCloseEvent *event = new QCloseEvent;
     this->closeEvent(event);
@@ -354,4 +355,9 @@ void controlpainel::on_btCircle_clicked()
     dfc = new dialogFindCircle();
     dfc->show();
 
+}
+
+void controlpainel::on_btSair_clicked()
+{
+    exit(1);
 }
