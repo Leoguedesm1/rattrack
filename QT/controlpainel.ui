@@ -72,7 +72,7 @@
      <normaloff>:/new/prefix1/reset.png</normaloff>:/new/prefix1/reset.png</iconset>
    </property>
   </widget>
-  <widget class="QPushButton" name="btSair">
+  <widget class="QPushButton" name="btVoltar">
    <property name="geometry">
     <rect>
      <x>220</x>
@@ -82,14 +82,14 @@
     </rect>
    </property>
    <property name="toolTip">
-    <string>Sair</string>
+    <string>Voltar</string>
    </property>
    <property name="text">
     <string/>
    </property>
    <property name="icon">
     <iconset resource="icons.qrc">
-     <normaloff>:/new/prefix1/sair.png</normaloff>:/new/prefix1/sair.png</iconset>
+     <normaloff>:/new/prefix1/back.png</normaloff>:/new/prefix1/back.png</iconset>
    </property>
   </widget>
   <widget class="QPushButton" name="btConfig">
@@ -202,7 +202,7 @@
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>290</x>
+     <x>340</x>
      <y>10</y>
      <width>59</width>
      <height>16</height>
@@ -215,7 +215,7 @@
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>405</x>
+     <x>455</x>
      <y>30</y>
      <width>52</width>
      <height>16</height>
@@ -228,7 +228,7 @@
   <widget class="QLabel" name="lbFile">
    <property name="geometry">
     <rect>
-     <x>360</x>
+     <x>410</x>
      <y>10</y>
      <width>691</width>
      <height>16</height>
@@ -241,7 +241,7 @@
   <widget class="QLabel" name="lbNome">
    <property name="geometry">
     <rect>
-     <x>463</x>
+     <x>513</x>
      <y>30</y>
      <width>281</width>
      <height>16</height>
@@ -254,7 +254,7 @@
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>291</x>
+     <x>341</x>
      <y>30</y>
      <width>43</width>
      <height>16</height>
@@ -267,7 +267,7 @@
   <widget class="QLabel" name="lbTeste">
    <property name="geometry">
     <rect>
-     <x>340</x>
+     <x>390</x>
      <y>30</y>
      <width>59</width>
      <height>16</height>
@@ -341,6 +341,39 @@
    </property>
    <property name="orientation">
     <enum>Qt::Vertical</enum>
+   </property>
+  </widget>
+  <widget class="Line" name="line_9">
+   <property name="geometry">
+    <rect>
+     <x>300</x>
+     <y>10</y>
+     <width>3</width>
+     <height>40</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Vertical</enum>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btSair">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>10</y>
+     <width>40</width>
+     <height>40</height>
+    </rect>
+   </property>
+   <property name="toolTip">
+    <string>Encerrar Programa</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="icon">
+    <iconset resource="icons.qrc">
+     <normaloff>:/new/prefix1/sair.png</normaloff>:/new/prefix1/sair.png</iconset>
    </property>
   </widget>
  </widget>
