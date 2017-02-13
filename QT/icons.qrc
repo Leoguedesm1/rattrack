@@ -7,5 +7,6 @@
         <file>sair.png</file>
         <file>save.png</file>
         <file>findcircle.png</file>
+        <file>back.png</file>
     </qresource>
 </RCC>
