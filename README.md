@@ -11,13 +11,15 @@ PROGRAMS VERSION:
 HOW TO COMPILE:
 
     1) Using terminal, enter in your project path
-    2) $ qmake -project
-    3) $ make
-    4) run executable
+    2) create build directory and enter it
+    3) $ qmake  ../sourcebuild/-project
+    4) $ make
+    5) run executable
     
     EXAMPLE:
     
     1) $ cd ../rattrack/QT
-    2) $ qmake rattrack.pro
-    3) $ make
-    4) $ ./rattrack
+    2) $ mkdir build && cd build
+    3) $ qmake ../QT/rattrack.pro
+    4) $ make
+    5) $ ./rattrack
