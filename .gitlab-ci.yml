@@ -12,6 +12,6 @@ build:
     - make
   artifacts:
     paths:
-      - $FILE
+      - ./build/$FILE
   tags:
     - docker
