@@ -1,4 +1,4 @@
-DOCKER_IMAGE = adnriv/opencv
+DOCKER_IMAGE = adnrv/opencv
 
 SOURCE_DIR = ../QT
 BUILD_DIR = ./build
