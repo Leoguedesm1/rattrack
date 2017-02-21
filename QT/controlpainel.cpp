@@ -22,6 +22,8 @@ double centerX, centerY;
 int cont = 1;
 QTimer *tmrTimer;
 
+double coordX= 0, coordY = 0;
+
 controlpainel::controlpainel(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::controlpainel)
@@ -39,6 +41,7 @@ controlpainel::controlpainel(QWidget *parent) :
     ui->lbNome->setText(QString::fromStdString(animal));
     ui->lbTeste->setText(QString::number(teste));
     ui->lbFile->setText(argv);
+    ui->lbStatus->setText("Iniciando teste...");
     u.src = &src;
     rattrack();
 }
@@ -73,6 +76,7 @@ void controlpainel::on_btPlay_clicked() {
         QIcon ButtonIcon(pixmap);
         ui->btPlay->setIcon(ButtonIcon);
         ui->btPlay->setToolTip("Pause");
+        ui->lbStatus->setText("Pausado!");
    }
 }
 
@@ -135,31 +139,55 @@ void controlpainel::tracking(Mat aux, Mat track) {
     for(i = 0; i < contours.size(); i++ ){
         area = contourArea(contours[i], false);
         if (area >= min_area && area <= max_area) {
-          cout << "rato de area: " << area << " indice: " << i << "\n";
+          //cout << "rato de area: " << area << " indice: " << i << "\n";
           break;
         }
     }
 
+    //Caso nao detectarmos o rato
     if (i >= contours.size() || area == 0){
-        cout << "rato não encontrado\n";
+
+        //Setando status
+        stringstream status1;
+        status1 << "Rato nao encontrado! Ultimas coordenadas: (" << coordX << ", " << coordY << ").";
+        string status = status1.str();
+        ui->lbStatus->setText(QString::fromStdString(status));
+
+        //Configurando a imagem na tela
         Mat p = paint();
-        addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1);
+        addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1); //Adicionando tracking a imagem
+
+        //Aplicando perspectiva
         warpPerspective(out_perspective1, out, invH, src_frame.size());
         warpPerspective(p, p, invH, p.size());
+
+        //Mostrando na tela
         out_original = out_perspective1;
         mostra_tela(out_perspective1);
 
         return;
+
+    //Caso detectarmos o rato
     }else{
 
-        /// Get the moments
+        //Get the moments
         vector<Moments> mu( contours.size() );
         mu[i] = moments( contours[i], false );
 
-        ///  Get the mass centers:
+        //Get the mass centers:
         vector<Point2f> mc( contours.size() );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 );
 
+
+        //Setando status
+        coordX = mc[i].x;
+        coordY = mc[i].y;
+        stringstream status1;
+        status1 << "Rato encontrado! Coordenadas: (" << coordX << ", " << coordY << ").";
+        string status = status1.str();
+        ui->lbStatus->setText(QString::fromStdString(status));
+
+        //Desenhando caminho numa matrix
         track.at<int>(mc[i].y, mc[i].x) = cont;
         cont++;
         p = paint();
@@ -167,9 +195,11 @@ void controlpainel::tracking(Mat aux, Mat track) {
         //Circulando contornos e destacando centro de massa
         drawContours( out_perspective1, contours, i, Scalar(255,255,0), 1, 8, hierarchy, 0, Point() );
         circle( out_perspective1, mc[i], 2.5, Scalar(0,255,0), -1);
-        addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1);
-        warpPerspective(out_perspective1, out, invH, src_frame.size());
 
+        addWeighted(out_perspective1, 1, p, 1, 0.0, out_perspective1); //Adicionando tracking a imagem
+        warpPerspective(out_perspective1, out, invH, src_frame.size()); //Aplicando perspectiva
+
+        //Mostrando na tela
         out_original = out_perspective1;
         mostra_tela(out_perspective1);
 
