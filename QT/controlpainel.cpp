@@ -20,14 +20,16 @@ userdatareset u;
 Mat src_frame, out, out_perspective, tela, track, invH, out_original, transform_mat, p;
 double centerX, centerY;
 int cont = 1;
-QTimer *tmrTimer;
 
 double coordX= 0, coordY = 0;
+QTimer *tmrTimer;
 
 controlpainel::controlpainel(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::controlpainel)
 {
+    tmrTimer = NULL;
+    tmrTimer = new QTimer();
     ui->setupUi(this);
     this->showMaximized();
     ui->btPlay->setStyleSheet("background-color: rgba(255, 255, 255, 0);");
@@ -55,10 +57,21 @@ void controlpainel::reset_all() {
     ui->lbNome->setText("");
     ui->lbTeste->setText("");
     ui->lbFile->setText("");
+    coordX = 0;
+    coordY = 0;
     src = 0;
     u.src = NULL;
     argv = "";
-    if(tmrTimer->isActive() == true) tmrTimer->stop();
+    cont = 1;
+    track = Scalar(0);
+    src_frame = Scalar(0);
+    out = Scalar(0);
+    out_perspective = Scalar(0);
+    tela = Scalar(0);
+    invH = Scalar(0);
+    out_original = Scalar(0);
+    transform_mat = Scalar(0);
+    p = Scalar(0);
     ui->lbTela->setPixmap(NULL);
 }
 
@@ -78,6 +91,7 @@ void controlpainel::on_btPlay_clicked() {
         ui->btPlay->setToolTip("Pause");
         ui->lbStatus->setText("Pausado!");
    }
+
 }
 
 void controlpainel::on_btConfig_clicked() {
@@ -93,13 +107,13 @@ void controlpainel::on_btReset_clicked() {
 }
 
 void controlpainel::on_btVoltar_clicked(){
+    tmrTimer->stop();
     reset_all();
     QCloseEvent *event = new QCloseEvent;
     this->closeEvent(event);
 }
 
 void controlpainel::closeEvent(QCloseEvent *event) {
-    tmrTimer->stop();
     this->close();
     this->mainParent->show();
     event->accept();
@@ -316,6 +330,7 @@ void controlpainel::aplica_perspectiva() {
 }
 
 void controlpainel::processa_video() {
+
     src >> src_frame;
 
     if(src_frame.empty()) {
@@ -364,9 +379,9 @@ void controlpainel::rattrack() {
     acha_perspectiva(transform_mat, H2, warpSize, FHEIGHT, FWIDTH);
 
     /*Aplica a matriz H2 em cada frame do video*/
-    tmrTimer = new QTimer(this);
-    connect(tmrTimer, SIGNAL(timeout()), this, SLOT(processa_video()));
-    tmrTimer->start(50);
+
+    QObject::connect(tmrTimer, SIGNAL(timeout()), this, SLOT(processa_video()));
+    tmrTimer->start(30);
 
     waitKey(0); // key press to close window
 }
