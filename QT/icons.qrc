@@ -1,12 +1,9 @@
 <RCC>
-    <qresource prefix="/new/prefix1">
-        <file>config.png</file>
+    <qresource prefix="/">
+        <file>original.png</file>
+        <file>perspective.png</file>
         <file>pause.png</file>
         <file>play.png</file>
         <file>reset.png</file>
-        <file>sair.png</file>
-        <file>save.png</file>
-        <file>findcircle.png</file>
-        <file>back.png</file>
     </qresource>
 </RCC>
