@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     //Iniciando algumas variaveis
-    threshold_value = 110;
+    threshold_value = 130;
     ui->tbThresh->setValue(threshold_value);
     ui->lbThresh->setText(QString::number(threshold_value));
     min_area = 0;
@@ -32,6 +32,10 @@ MainWindow::MainWindow(QWidget *parent) :
     tmrTimer = NULL;
     original = 1;
     perspective = 0;
+    cont_track = 0;
+
+    testeInput = NULL;
+    animalInput = NULL;
 
     this->showMaximized(); //Full screen
     ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
@@ -60,6 +64,9 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_btFile_clicked()
 {
+
+    if(ui->frameTools->isEnabled() == true) ui->frameTools->setEnabled(false);
+
     //Resetar as variaveis do rattrack
     resetar_variaveis();
 
@@ -88,11 +95,11 @@ void MainWindow::on_btFile_clicked()
     ui->lbTeste->hide();
 
     //Criando caixas de texto
-    animalInput = new QLineEdit;
+    if (!animalInput) animalInput = new QLineEdit;
     animalInput->setPlaceholderText("Digite o nome do animal...");
     animalInput->setFocus();
 
-    testeInput = new QLineEdit;
+    if (!testeInput) testeInput = new QLineEdit;
     testeInput->setPlaceholderText("Digite o numero do teste...");
     testeInput->setFocus();
 
@@ -116,6 +123,8 @@ void MainWindow::on_btIniciar_clicked()
         //Excluindo os QLineEdit
         delete animalInput;
         delete testeInput;
+        animalInput = NULL;
+        testeInput = NULL;
 
         //Mostrando os QLabels escondidos com o texto digitado
         ui->lbAnimal->show();
@@ -257,7 +266,6 @@ void MainWindow::resetar_variaveis() {
 void MainWindow::le_video_file(VideoCapture &src, QString argv) {
 
     src.open(argv.toAscii().data()); //Abrindo video
-    //src.set(CAP_PROP_POS_MSEC, 0); //Cortando video *nao sera necessario*
 
     //Pegando os frames por segundo e o total de frames do video
     fps = src.get(CAP_PROP_FPS);
@@ -269,7 +277,7 @@ void MainWindow::le_video_file(VideoCapture &src, QString argv) {
 }
 
 void MainWindow::reset_video() {
-    cont_track = 1; //Resetando o contador dos pontos
+    cont_track = 0; //Resetando o contador dos pontos
     track_image = Scalar(0); //Resetando a matriz do tracking
     src.set(CAP_PROP_POS_MSEC, 00); //Reiniciando video *alterar*
 }
@@ -388,17 +396,19 @@ void MainWindow::processa_video() {
 
     src >> src_frame;
 
-    //*Mudar para last frame*
+    //Mudar para last frame
     if(src_frame.empty()) {
          tmrTimer->stop();
-         QMessageBox::information(this, tr ("Teste"), tr("O video terminou."));
+         encerra_video();
+         //QMessageBox::information(this, tr ("Teste"), tr("O video terminou."));
+     }else{
+
+        aplica_perspectiva();
+
+        Threshold();
+
+        waitKey(20); // waits to display frame
      }
-
-    aplica_perspectiva();
-
-    Threshold();
-
-    waitKey(20); // waits to display frame
 }
 
 void MainWindow::Threshold() {
@@ -427,9 +437,8 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
     vector<Vec4i> hierarchy;
     unsigned int i;
     float area;
-    Mat perspective_frame_aux;
 
-    cvtColor(perspective_frame, perspective_frame_aux, CV_GRAY2RGB);
+    cvtColor(perspective_frame, perspective_frame, CV_GRAY2RGB);
     findContours( aux, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
 
     for(i = 0; i < contours.size(); i++ ){
@@ -449,17 +458,20 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         string status = status1.str();
         ui->lbStatus->setText(QString::fromStdString(status));
 
+        //Adicionando coordenadas
+        coordinates.push_back(Point2f(0, 0));
+
         //Configurando a imagem na tela
         Mat p = paint();
-        addWeighted(perspective_frame_aux, 1, p, 1, 0.0, perspective_frame_aux); //Adicionando tracking a imagem
+        addWeighted(perspective_frame, 1, p, 1, 0.0, perspective_frame); //Adicionando tracking a imagem
 
         //Aplicando perspectiva
-        warpPerspective(perspective_frame_aux, original_frame, invH_warp, src_frame.size());
+        warpPerspective(perspective_frame, original_frame, invH_warp, src_frame.size());
         warpPerspective(p, p, invH_warp, p.size());
 
         //Mostrando na tela
         if(original == 1) mostrar_imagem(original_frame);
-        else mostrar_imagem(perspective_frame_aux);
+        else mostrar_imagem(perspective_frame);
         return;
 
     //Caso detectarmos o rato
@@ -477,6 +489,10 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         //Setando status
         coordX = mc[i].x;
         coordY = mc[i].y;
+
+        //Adicionando coordenadas
+        coordinates.push_back(Point2f(coordX, coordY));
+
         stringstream status1;
         status1 << "Rato encontrado! Coordenadas: (" << coordX << ", " << coordY << ").";
         string status = status1.str();
@@ -488,19 +504,19 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         p = paint();
 
         //Circulando contornos e destacando centro de massa
-        drawContours( perspective_frame_aux, contours, i, Scalar(255,255,0), 1, 8, hierarchy, 0, Point() );
-        circle( perspective_frame_aux, mc[i], 2.5, Scalar(0,255,0), -1);
+        drawContours( perspective_frame, contours, i, Scalar(255,255,0), 1, 8, hierarchy, 0, Point() );
+        circle( perspective_frame, mc[i], 2.5, Scalar(0,255,0), -1);
 
-        addWeighted(perspective_frame_aux, 1, p, 1, 0.0, perspective_frame_aux); //Adicionando tracking a imagem
-        warpPerspective(perspective_frame_aux, original_frame, invH_warp, src_frame.size()); //Aplicando perspectiva
+        addWeighted(perspective_frame, 1, p, 1, 0.0, perspective_frame); //Adicionando tracking a imagem
+        warpPerspective(perspective_frame, original_frame, invH_warp, src_frame.size()); //Aplicando perspectiva
 
-        /*Copiando a imagen corrigida por ROI*/
-        //out.copyTo(tela(Rect(0, 0, out.cols, out.rows)));
-        //out_perspective1.copyTo(tela(Rect(out.cols, 0, out_perspective1.cols, out_perspective1.rows)));
+        //Criando imagem da tela
+        original_frame.copyTo(tela_image(Rect(0, 0, original_frame.cols, original_frame.rows)));
+        perspective_frame.copyTo(tela_image(Rect(original_frame.cols, 0, perspective_frame.cols, perspective_frame.rows)));
 
         //Mostrando na tela
         if(original == 1) mostrar_imagem(original_frame);
-        else mostrar_imagem(perspective_frame_aux);
+        else mostrar_imagem(perspective_frame);
 
     }
 }
@@ -561,3 +577,146 @@ void MainWindow::mostrar_imagem(Mat &frame) {
     ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
 }
 
+void MainWindow::encerra_video() {
+
+    QString dirTela = "", dirOriginal = "", dirPerspectiva = "", dirCaminho = "", dirAprendizagem = "";
+    string save;
+
+    Mat aprendizagem_image = gera_IA();
+
+    //Original
+    if(ui->cbOriginal->isChecked()) {
+
+        ui->lbStatus->setText("Salvando Original...");
+
+        //Gerando nome do arquivo
+        stringstream filename;
+        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Original.bmp";
+        save = filename.str();
+
+        //Salvando
+        dirOriginal = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+
+        //Verificacao do nome modificado
+        if(dirOriginal != ".bmp") {
+            dirOriginal = dirOriginal.toUtf8().data();
+            imwrite(dirOriginal.toAscii().data(), original_frame);
+            ui->lbStatus->setText("Original salvo com sucesso!");
+        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+    }
+
+    //Perspectiva
+    if(ui->cbPerspectiva->isChecked()) {
+
+        ui->lbStatus->setText("Salvando Perspectiva...");
+
+        //Gerando nome do arquivo
+        stringstream filename;
+        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Perspectiva.bmp";
+        save = filename.str();
+
+        //Salvando
+        dirPerspectiva = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+
+        //Verificacao do nome modificado
+        if(dirPerspectiva != ".bmp") {
+            dirPerspectiva = dirPerspectiva.toUtf8().data();
+            imwrite(dirPerspectiva.toAscii().data(), perspective_frame);
+            ui->lbStatus->setText("Perspectiva salva com sucesso!");
+        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+    }
+
+    //Tela
+    if(ui->cbTela->isChecked()) {
+
+        ui->lbStatus->setText("Salvando Tela...");
+
+        //Gerando nome do arquivo
+        stringstream filename;
+        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Tela.bmp";
+        save = filename.str();
+
+        //Salvando
+        dirTela = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+
+        //Verificacao do nome modificado
+        if(dirTela != ".bmp") {
+            dirTela = dirTela.toUtf8().data();
+            imwrite(dirTela.toAscii().data(), tela_image);
+            ui->lbStatus->setText("Tela salva com sucesso!");
+        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+    }
+
+    //Caminho
+    if(ui->cbPath->isChecked()) {
+
+        ui->lbStatus->setText("Salvando Caminho...");
+
+        //Gerando nome do arquivo
+        stringstream filename;
+        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Caminho.bmp";
+        save = filename.str();
+
+        //Salvando
+        dirCaminho = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+
+        //Verificacao do nome modificado
+        if(dirCaminho != ".bmp") {
+            dirCaminho = dirCaminho.toUtf8().data();
+            imwrite(dirCaminho.toAscii().data(), track_image);
+            ui->lbStatus->setText("Caminho salvo com sucesso!");
+        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+    }
+
+    //Aprendizado
+    if(ui->cbIA->isChecked()) {
+
+        ui->lbStatus->setText("Salvando Aprendizado...");
+
+        //Gerando nome do arquivo
+        stringstream filename;
+        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Aprendizado.bmp";
+        save = filename.str();
+
+        //Salvando
+        dirAprendizagem = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+
+        //Verificacao do nome modificado
+        if(dirAprendizagem != ".bmp") {
+            dirAprendizagem = dirAprendizagem.toUtf8().data();
+            imwrite(dirAprendizagem.toAscii().data(), aprendizagem_image);
+            ui->lbStatus->setText("Aprendizado salvo com sucesso!");
+        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+    }
+
+    //Bloqueando Ferramentas e resetando opcoes
+    ui->frameTools->setEnabled(false);
+    ui->cbOriginal->setChecked(false);
+    ui->cbPerspectiva->setChecked(false);
+    ui->cbPath->setChecked(false);
+    ui->cbIA->setChecked(false);
+    ui->cbTela->setChecked(false);
+
+    //Fundo preto do video
+    ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
+    QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
+    ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+}
+
+Mat MainWindow::gera_IA() {
+
+    Mat IA;
+    unsigned int cont = 0;
+    Point2f final(coordinates[coordinates.size() - 2].x, coordinates[coordinates.size() - 2].y);
+
+    track_image.copyTo(IA);
+
+    while(cont <= cont_track) {
+
+        line(IA, coordinates[cont], final, Scalar(255,255,255));
+        cont+=20;
+    }
+
+    return IA;
+
+}
