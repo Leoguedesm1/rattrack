@@ -70,7 +70,8 @@ private slots:
     Mat paint();
     void mostrar_imagem(Mat& frame);
     void resetar_variaveis();
-
+    void encerra_video();
+    Mat gera_IA();
 
 private:
 
@@ -100,6 +101,8 @@ private:
     Size warpSize;
     int FHEIGHT, FWIDTH, centerX, centerY, threshold_value, min_area, max_area, coordX, coordY, rtrack;
     unsigned int cont_track;
+
+    vector<Point2f> coordinates;
 
 };
 
