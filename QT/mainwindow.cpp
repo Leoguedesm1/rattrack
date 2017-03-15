@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QDebug>
+
 const double INF = std::numeric_limits<double>::infinity();
 double raio = 112;
 
@@ -33,6 +35,8 @@ MainWindow::MainWindow(QWidget *parent) :
     original = 1;
     perspective = 0;
     cont_track = 0;
+    numberFiles = 0;
+    contFiles = INF;
 
     testeInput = NULL;
     animalInput = NULL;
@@ -62,18 +66,43 @@ MainWindow::~MainWindow()
 
 //GUI FUNCTIONS
 
+void MainWindow::inputNameTeste() {
+    //Escondendo labels
+    ui->lbAnimal->hide();
+    ui->lbTeste->hide();
+
+    //Criando caixas de texto
+    if (!animalInput) animalInput = new QLineEdit;
+    animalInput->setPlaceholderText("Digite o nome do animal...");
+    animalInput->setFocus();
+
+    if (!testeInput) testeInput = new QLineEdit;
+    testeInput->setPlaceholderText("Digite o numero do teste...");
+    testeInput->setFocus();
+
+    //Adicionando ao layout
+    ui->horizontalLayout_3->addWidget(animalInput, 1, 0);
+    ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
+}
+
+void MainWindow::setFileName(int contFiles) {
+
+    ui->lbFile->setEnabled(true);
+    QString filename = fileList.at(contFiles);
+    filename = filename.section("/", -1, -1);
+    QString nameDir = directory.dirName();
+    stringstream namelbFile;
+    namelbFile << nameDir.toAscii().data() << "\\" << filename.toAscii().data();
+    ui->lbFile->setText(QString::fromStdString(namelbFile.str()));
+}
+
 void MainWindow::on_btFile_clicked()
 {
 
+    reset_interface();
+
     if(ui->frameTools->isEnabled() == true) ui->frameTools->setEnabled(false);
-
-    //Resetar as variaveis do rattrack
-    resetar_variaveis();
-
-    //Fundo preto do video
-    ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
-    QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
-    ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+    ui->btDir->setEnabled(false);
 
     //Lendo arquivo de video
     argv = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
@@ -109,13 +138,59 @@ void MainWindow::on_btFile_clicked()
 
 }
 
+void MainWindow::on_btDir_clicked()
+{
+    reset_interface();
+
+    if(ui->frameTools->isEnabled() == true) ui->frameTools->setEnabled(false);
+    ui->btFile->setEnabled(false);
+
+    //Lendo arquivo de video
+    le_diretorio();
+
+    //Configurando inicio do teste
+    numberFiles = fileList.size();
+    contFiles = 0;
+
+    //Indicando nome do arquivo
+    setFileName(contFiles);
+
+    //Trocando Label por Caixa de texto para insercao do nome e numero do teste
+    //Escondendo labels
+    ui->lbAnimal->hide();
+    ui->lbTeste->hide();
+
+    //Criando caixas de texto
+    if (!animalInput) animalInput = new QLineEdit;
+    animalInput->setPlaceholderText("Digite o nome do animal...");
+    animalInput->setFocus();
+
+    if (!testeInput) testeInput = new QLineEdit;
+    testeInput->setPlaceholderText("Digite o numero do teste...");
+    testeInput->setFocus();
+
+    //Adicionando ao layout
+    ui->horizontalLayout_3->addWidget(animalInput, 1, 0);
+    ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
+
+    //Destravando as configuracoes
+    ui->frameImagens->setEnabled(true);
+    ui->btIniciar->setEnabled(true);
+    ui->label->setEnabled(true);
+    ui->label_2->setEnabled(true);
+    ui->label_4->setEnabled(true);
+
+    argv = fileList.at(contFiles);
+
+}
+
 void MainWindow::on_btIniciar_clicked()
 {
-
     //Condicoes para poder iniciar o teste...
     if(animalInput->text().isEmpty() || testeInput->text().isEmpty())
         QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha os campos 'Animal' e 'Teste'."));
     else {
+
         //Salvando as variaves nomeAnimal e numeroTeste
         animal = animalInput->text();
         teste = testeInput->text();
@@ -125,6 +200,10 @@ void MainWindow::on_btIniciar_clicked()
         delete testeInput;
         animalInput = NULL;
         testeInput = NULL;
+
+        //Bloqueando botoes
+        ui->btDir->setEnabled(true);
+        ui->btFile->setEnabled(true);
 
         //Mostrando os QLabels escondidos com o texto digitado
         ui->lbAnimal->show();
@@ -154,11 +233,8 @@ void MainWindow::on_btIniciar_clicked()
             return;
         }
 
-
         rattrack();
-
     }
-
 }
 
 void MainWindow::on_btReset_clicked()
@@ -237,7 +313,29 @@ void MainWindow::on_tbTrack_valueChanged(int value) {
     ui->lbTrack->setText(QString::number(rtrack));
 }
 
+void MainWindow::reset_interface() {
+    //Resetar as variaveis do rattrack
+    resetar_variaveis();
+
+    //Fundo preto do video
+    ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
+    QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
+    ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+
+    //Bloqueando Ferramentas e resetando opcoes
+    ui->frameImagens->setEnabled(false);
+    ui->frameTools->setEnabled(false);
+    ui->cbOriginal->setChecked(false);
+    ui->cbPerspectiva->setChecked(false);
+    ui->cbPath->setChecked(false);
+    ui->cbIA->setChecked(false);
+    ui->cbTela->setChecked(false);
+
+    ui->lbStatus->setText("Carregando arquivos...");
+}
+
 //RATTRACK FUNCTIONS
+
 void MainWindow::resetar_variaveis() {
     if(tmrTimer != NULL) {
         tmrTimer->stop();
@@ -261,6 +359,22 @@ void MainWindow::resetar_variaveis() {
     perspective_frame = Scalar(0);
     original_frame = Scalar(0);
     p = Scalar(0);
+}
+
+void MainWindow::le_diretorio() {
+    QFileInfo file;
+
+    QString chooseDir = QFileDialog::getExistingDirectory(this, tr("Escolha o diretorio que contenha os videos"), "/home", QFileDialog::DontResolveSymlinks | QFileDialog::ReadOnly);
+    QDir workDir(chooseDir);
+    workDir.setNameFilters(QStringList()<<"*.avi");
+    QFileInfoList files = workDir.entryInfoList();
+
+    foreach (file, files){
+        if (file.isFile())
+            fileList << file.absoluteFilePath();
+    }
+
+    directory = file.dir();
 }
 
 void MainWindow::le_video_file(VideoCapture &src, QString argv) {
@@ -577,8 +691,7 @@ void MainWindow::mostrar_imagem(Mat &frame) {
     ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
 }
 
-void MainWindow::encerra_video() {
-
+void MainWindow::salvar_imagens() {
     QString dirTela = "", dirOriginal = "", dirPerspectiva = "", dirCaminho = "", dirAprendizagem = "";
     string save;
 
@@ -688,19 +801,62 @@ void MainWindow::encerra_video() {
             ui->lbStatus->setText("Aprendizado salvo com sucesso!");
         }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
     }
+}
 
-    //Bloqueando Ferramentas e resetando opcoes
-    ui->frameTools->setEnabled(false);
-    ui->cbOriginal->setChecked(false);
-    ui->cbPerspectiva->setChecked(false);
-    ui->cbPath->setChecked(false);
-    ui->cbIA->setChecked(false);
-    ui->cbTela->setChecked(false);
+void MainWindow::encerra_video() {
 
-    //Fundo preto do video
-    ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
-    QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
-    ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+    salvar_imagens();
+
+    //Verificando se estamos em um diretorio ou apenas um arquivo
+    //Arquivo
+    if(contFiles == INF)
+        reset_interface();
+
+    //Diretorio
+    else{
+        contFiles++;
+
+        if(contFiles < numberFiles) {
+
+            //Resetar as variaveis do rattrack
+            resetar_variaveis();
+
+            //Resetar tela
+            ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
+            QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
+            ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+
+            //Resetar GUI
+            ui->frameTools->setEnabled(false);
+            ui->cbOriginal->setChecked(false);
+            ui->cbPerspectiva->setChecked(false);
+            ui->cbPath->setChecked(false);
+            ui->cbIA->setChecked(false);
+            ui->cbTela->setChecked(false);
+            ui->btFile->setEnabled(false);
+            ui->btIniciar->setEnabled(true);
+
+            setFileName(contFiles);
+
+            //Trocando Label por Caixa de texto para insercao do nome e numero do teste
+            inputNameTeste();
+
+            //Destravando as configuracoes
+            ui->frameImagens->setEnabled(true);
+            ui->btIniciar->setEnabled(true);
+            ui->label->setEnabled(true);
+            ui->label_2->setEnabled(true);
+            ui->label_4->setEnabled(true);
+
+            argv = fileList.at(contFiles);
+
+            ui->lbStatus->setText("Aguardando usuario...");
+            QMessageBox::information(this, tr("Novo video"), tr ("Por favor, preencha os campos 'Animal' e 'Teste' e inicie o proximo video clicando no botao 'Iniciar Teste'"));
+
+        }else
+            reset_interface();
+    }
+
 }
 
 Mat MainWindow::gera_IA() {
