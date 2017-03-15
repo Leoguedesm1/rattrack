@@ -44,6 +44,7 @@ private slots:
 
     //GUI functions
     void on_btFile_clicked();
+    void on_btDir_clicked();
     void on_btIniciar_clicked();
     void on_btReset_clicked();
     void on_btPlay_clicked();
@@ -57,8 +58,13 @@ private slots:
     void on_tbMax_valueChanged(int value);
     void on_tbTrack_valueChanged(int value);
 
+    void setFileName(int contFiles);
+    void reset_interface();
+    void inputNameTeste();
+
     //Rattrack functions
     void le_video_file(VideoCapture& src, QString argv);
+    void le_diretorio();
     void reset_video();
     void playorpause_video();
     void rattrack();
@@ -71,7 +77,9 @@ private slots:
     void mostrar_imagem(Mat& frame);
     void resetar_variaveis();
     void encerra_video();
+    void salvar_imagens();
     Mat gera_IA();
+
 
 private:
 
@@ -86,7 +94,12 @@ private:
 
     QString animal;
     QString teste;
+    QStringList fileList;
     QString argv;
+    QDir directory;
+
+    int numberFiles;
+    int contFiles;
 
     //Rattrack variables
     VideoCapture src;
