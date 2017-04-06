@@ -1323,7 +1323,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
 
         if(!found) {
             getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] +
-                    ", encontrado apenas " + corners.size() + " de " + *numCorners + " corners!\n";
+                    ", encontrado apenas " + ((char*) corners.size()) + " de " + *numCorners + " corners!\n";
             return true;
         }else
             break;
