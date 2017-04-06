@@ -5,5 +5,7 @@
         <file>pause.png</file>
         <file>play.png</file>
         <file>reset.png</file>
+        <file>cam_config.png</file>
+        <file>sair.png</file>
     </qresource>
 </RCC>
