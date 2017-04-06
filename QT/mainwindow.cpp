@@ -1322,8 +1322,9 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
                                            CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FILTER_QUADS);
 
         if(!found) {
+            int size = corners.size();
             getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] +
-                    ", encontrado apenas " + ((char*) corners.size()) + " de " + *numCorners + " corners!\n";
+                    ", encontrado apenas " + size + " de " + *numCorners + " corners!\n";
             return true;
         }else
             break;
