@@ -1282,7 +1282,7 @@ bool MainWindow::getCalibrationCamera(Size* boardSize, vector<Point2f> corners, 
     return false;
 }
 
-bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, int* numCorners, vector<Point2f> corners, string getErro) {
+bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, vector<Point2f> corners, string getErro) {
     string filename = CALIBRATION_DIR_NAME + YML_FILE_NAME;
 
     FileStorage fs(filename, FileStorage::READ);
@@ -1322,9 +1322,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
                                            CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FILTER_QUADS);
 
         if(!found) {
-            int size = corners.size();
-            getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] +
-                    ", encontrado apenas " + size + " de " + *numCorners + " corners!\n";
+            getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] + "!\n";
             return true;
         }else
             break;
@@ -1436,7 +1434,7 @@ void MainWindow::setCalibrationCamera() {
             }
 
             //Homography
-            erro = getHomographyMatrix(&board_sz, &numCornersHor, &numCornersVer, &numCorners, corners, getErro);
+            erro = getHomographyMatrix(&board_sz, &numCornersHor, &numCornersVer, corners, getErro);
 
             if(erro) {
                 QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
