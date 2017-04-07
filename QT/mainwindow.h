@@ -138,7 +138,7 @@ private slots:
 
     bool getCalibrationCamera(Size* boardSize, vector<Point2f> corners, string getErro);
 
-    bool getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, int* numCorners, vector<Point2f> corners, string getErro);
+    bool getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, vector<Point2f> corners, string getErro);
 
     void setCalibrationCamera();
 
