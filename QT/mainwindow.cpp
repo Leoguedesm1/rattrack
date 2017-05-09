@@ -22,6 +22,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    QLocale::setDefault(QLocale(QLocale::Portuguese, QLocale::Brazil));
+
     //Iniciando algumas variaveis
     threshold_value = 130;
     ui->tbThresh->setValue(threshold_value);
@@ -835,7 +837,7 @@ void MainWindow::encerra_video() {
         reset_interface();
         QMessageBox::information(this, tr("Fim de teste!"), tr("A analise acabou!"));
 
-    //Diretorio
+        //Diretorio
     }else{
 
         contFiles++;
@@ -916,7 +918,20 @@ void MainWindow::captureImagesCalibration(
     *numCorners = (*numCornersHor) * (*numCornersVer);
     *board_sz = Size(*numCornersHor, *numCornersVer);
 
-    VideoCapture capture = VideoCapture(0);
+    QString argv2 = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
+
+    //cout << argv2.toAscii().data() << "\n";
+
+    //VideoCapture capture;
+    //capture.open(0);
+
+    VideoCapture capture;
+    capture.open(argv2.toAscii().data());
+
+    if(!capture.isOpened()){
+        cout << "kraio mano" << "\n";
+        return;
+    }
 
     stringstream img;
     img << CALIBRATION_DIR_NAME << "/calib";
@@ -925,9 +940,8 @@ void MainWindow::captureImagesCalibration(
     int successes=0;
 
     Mat image;
+    Mat image_calib;
     Mat gray_image;
-
-    capture >> image;
 
     //Criando arquivo .xml
     FileStorage fs;
@@ -944,13 +958,18 @@ void MainWindow::captureImagesCalibration(
 
     while(successes < *numSquares) {
 
+        capture >> image;
+
+        cvtColor(image, gray_image, CV_RGB2GRAY);
+
+        equalizeHist(gray_image, image_calib);
+
         //Encontrando ChessBoardPattern
-        cvtColor(image, gray_image, CV_BGR2GRAY);
-        bool found = findChessboardCorners(image, *board_sz, corners, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+        bool found = findChessboardCorners(image_calib, *board_sz, corners, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
 
         //Se foi encontrado, desenhamos na imagem
         if(found) {
-            cornerSubPix(gray_image, corners, Size(11, 11), Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
+            cornerSubPix(image_calib, corners, Size(11, 11), Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
             drawChessboardCorners(image, *board_sz, corners, found);
         }
 
@@ -962,8 +981,6 @@ void MainWindow::captureImagesCalibration(
         putText( image, msg, textOrigin, 1, 1, Scalar(0,255,0));
 
         imshow("Calib", image);
-
-        capture >> image;
 
         //Comandos pelo teclado
         int key = waitKey(1);
@@ -990,6 +1007,9 @@ void MainWindow::captureImagesCalibration(
                 break;
         }
     }
+
+    image.release();
+
 
     //Encerrando arquivo .xml
     fs << "]";
@@ -1223,6 +1243,7 @@ bool MainWindow::getCalibrationCamera(Size* boardSize, vector<Point2f> corners, 
 
     if(imageList.empty()) {
         getErro = "Lista de imagens vazias!";
+        cout << getErro.c_str() << "\n";
         return true;
     }
 
@@ -1294,6 +1315,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
 
     if( !fs.isOpened() || intrinsic.empty() || distortion.empty() ) {
         getErro = "Nao foi possivel carregar os intrinsic parameters do arquivo " + YML_FILE_NAME + "!\n";
+        cout << getErro.c_str() << "\n";
         return true;
     }
 
@@ -1308,6 +1330,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
 
     if( image0.empty() ) {
         getErro = "Nao foi possivel carregar a imagem " + imageList[indexImageList] + "!\n";
+        cout << getErro.c_str() << "\n";
         return true;
     }
 
@@ -1323,6 +1346,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
 
         if(!found) {
             getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] + "!\n";
+            cout << getErro.c_str() << "\n";
             return true;
         }else
             break;
@@ -1331,6 +1355,7 @@ bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* nu
 
         if(indexImageList == imageList.size()) {
             getErro = "Impossivel encontrar a calibracao!";
+            cout << getErro.c_str() << "\n";
             return true;
         }
     }
@@ -1416,36 +1441,36 @@ void MainWindow::setCalibrationCamera() {
     int op = msgBox.exec();
 
     switch(op) {
-        case QMessageBox::Ok:
+    case QMessageBox::Ok:
 
-            //Criando Pasta para armazenar os arquivos de calibracao
-            if(!dir.exists())
-                QDir().mkdir(dir.absolutePath());
+        //Criando Pasta para armazenar os arquivos de calibracao
+        if(!dir.exists())
+            QDir().mkdir(dir.absolutePath());
 
-            //Detectando e salvando imagens para calibracao
-            captureImagesCalibration(&numSquares, &numCornersHor, &numCornersVer, &numCorners, &board_sz, corners);
+        //Detectando e salvando imagens para calibracao
+        captureImagesCalibration(&numSquares, &numCornersHor, &numCornersVer, &numCorners, &board_sz, corners);
 
-            //Calibracao
-            erro = getCalibrationCamera(&board_sz, corners, getErro);
+        //Calibracao
+        erro = getCalibrationCamera(&board_sz, corners, getErro);
 
-            if(erro) {
-                QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
-                return;
-            }
+        if(erro) {
+            QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
+            return;
+        }
 
-            //Homography
-            erro = getHomographyMatrix(&board_sz, &numCornersHor, &numCornersVer, corners, getErro);
+        //Homography
+        erro = getHomographyMatrix(&board_sz, &numCornersHor, &numCornersVer, corners, getErro);
 
-            if(erro) {
-                QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
-                return;
-            }
+        if(erro) {
+            QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
+            return;
+        }
 
-            QMessageBox::information(this, tr("Calibracao"), tr("Calibracao finalizada com sucesso!"));
-            break;
+        QMessageBox::information(this, tr("Calibracao"), tr("Calibracao finalizada com sucesso!"));
+        break;
 
-        case QMessageBox::Cancel:
-            break;
+    case QMessageBox::Cancel:
+        break;
     }
 }
 
