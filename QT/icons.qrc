@@ -7,5 +7,6 @@
         <file>reset.png</file>
         <file>cam_config.png</file>
         <file>sair.png</file>
+        <file>snapshot.png</file>
     </qresource>
 </RCC>

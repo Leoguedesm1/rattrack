@@ -1,21 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QDebug>
-
-double raio = 112;
-const string XML_FILE_NAME = "/image_list.xml";
-const string YML_FILE_NAME = "/calib.yml";
-const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Calibration";
-
-const double INF = std::numeric_limits<double>::infinity();
-
-//Definindo valores de pixels BRANCO e PRETO
-#define WHITE 255
-#define BLACK 0
-
-enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -37,14 +22,15 @@ MainWindow::MainWindow(QWidget *parent) :
     rtrack = 1;
     ui->tbTrack->setValue(rtrack);
     ui->lbTrack->setText(QString::number(rtrack));
-    coordX = 0;
-    coordY = 0;
+
+    frames = 0;
     tmrTimer = NULL;
     original = 1;
     perspective = 0;
     cont_track = 0;
     numberFiles = 0;
     contFiles = INF;
+    snapshot = 0;
 
     testeInput = NULL;
     animalInput = NULL;
@@ -104,8 +90,7 @@ void MainWindow::setFileName(double contFiles) {
     ui->lbFile->setText(QString::fromStdString(namelbFile.str()));
 }
 
-void MainWindow::on_btFile_clicked()
-{
+void MainWindow::on_btFile_clicked() {
 
     reset_interface();
 
@@ -115,6 +100,7 @@ void MainWindow::on_btFile_clicked()
 
     //Lendo arquivo de video
     argv = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
+    contFiles = INF;
 
     //Destravando as configuracoes
     ui->frameImagens->setEnabled(true);
@@ -147,8 +133,7 @@ void MainWindow::on_btFile_clicked()
 
 }
 
-void MainWindow::on_btDir_clicked()
-{
+void MainWindow::on_btDir_clicked() {
     reset_interface();
 
     if(ui->frameTools->isEnabled() == true) ui->frameTools->setEnabled(false);
@@ -194,8 +179,7 @@ void MainWindow::on_btDir_clicked()
 
 }
 
-void MainWindow::on_btIniciar_clicked()
-{
+void MainWindow::on_btIniciar_clicked() {
     //Condicoes para poder iniciar o teste...
     if(animalInput->text().isEmpty() || testeInput->text().isEmpty())
         QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha os campos 'Animal' e 'Teste'."));
@@ -247,13 +231,11 @@ void MainWindow::on_btIniciar_clicked()
     }
 }
 
-void MainWindow::on_btReset_clicked()
-{
+void MainWindow::on_btReset_clicked() {
     reset_video();
 }
 
-void MainWindow::on_btPlay_clicked()
-{
+void MainWindow::on_btPlay_clicked() {
     playorpause_video();
 }
 
@@ -299,20 +281,17 @@ void MainWindow::activePerspective() {
     original = 0;
 }
 
-void MainWindow::on_tbThresh_valueChanged(int value)
-{
+void MainWindow::on_tbThresh_valueChanged(int value) {
     threshold_value = value;
     ui->lbThresh->setText(QString::number(threshold_value));
 }
 
-void MainWindow::on_tbMin_valueChanged(int value)
-{
+void MainWindow::on_tbMin_valueChanged(int value) {
     min_area = value;
     ui->lbMin->setText(QString::number(min_area));
 }
 
-void MainWindow::on_tbMax_valueChanged(int value)
-{
+void MainWindow::on_tbMax_valueChanged(int value) {
     max_area = value;
     ui->lbMax->setText(QString::number(max_area));
 }
@@ -335,29 +314,53 @@ void MainWindow::reset_interface() {
     //Bloqueando Ferramentas e resetando opcoes
     ui->frameImagens->setEnabled(false);
     ui->frameTools->setEnabled(false);
-    ui->cbOriginal->setChecked(false);
-    ui->cbPerspectiva->setChecked(false);
+    ui->cbVelo->setChecked(false);
+    ui->cbAceleracao->setChecked(false);
     ui->cbPath->setChecked(false);
     ui->cbIA->setChecked(false);
-    ui->cbTela->setChecked(false);
     ui->btCamConfig->setEnabled(true);
 
     ui->lbStatus->setText("Carregando arquivos...");
 }
 
-void MainWindow::on_btCamConfig_clicked()
-{
-    setCalibrationCamera();
+void MainWindow::on_btCamConfig_clicked() {
+    assistCalibration();
 }
 
-void MainWindow::on_btSair_clicked()
-{
+void MainWindow::on_btSair_clicked() {
     exit(1);
 }
 
+void MainWindow::on_btSnap_clicked() {
+    string save;
+
+    //Criando diretorio para os testes
+    QDir dir(QString::fromStdString(TESTES_DIR_NAME));
+    if(!dir.exists())
+        QDir().mkdir(dir.absolutePath());
+
+    //Criando diretorio para o rato
+    QDir dir1(QString::fromStdString(TESTES_DIR_NAME) + "/" + animal);
+    if(!dir1.exists())
+        QDir().mkdir(dir1.absolutePath());
+
+    //Criando diretorio para o rato
+    QDir dir2(QString::fromStdString(TESTES_DIR_NAME) + "/" + animal + "/Snapshots");
+    if(!dir2.exists())
+        QDir().mkdir(dir2.absolutePath());
+
+    //Gerando nome da imagem
+    stringstream filename;
+    filename << dir2.absolutePath().toAscii().data() << "/snapshot" << snapshot++ << "_teste_" << teste.toAscii().data() << ".bmp";
+    save = filename.str();
+
+    //Salvando imagem
+   if(original == 1) imwrite(save, original_frame);
+    else imwrite(save, perspective_frame);
+
+}
 
 //RATTRACK FUNCTIONS
-
 void MainWindow::resetar_variaveis() {
     if(tmrTimer != NULL) {
         tmrTimer->stop();
@@ -370,19 +373,18 @@ void MainWindow::resetar_variaveis() {
 
     tmrTimer = NULL;
 
-    coordX = 0;
-    coordY = 0;
     total_frames = 0;
     fps = 0;
     FHEIGHT = 0;
     FWIDTH = 0;
     cont_track = 0;
     H2_warp = Scalar(0);
-    invH_warp = Scalar(0);
     src_frame = Scalar(0);
     perspective_frame = Scalar(0);
     original_frame = Scalar(0);
     p = Scalar(0);
+
+    snapshot = 0;
 }
 
 void MainWindow::le_diretorio() {
@@ -439,80 +441,6 @@ void MainWindow::playorpause_video() {
 
 }
 
-void MainWindow::acha_perspectiva(Mat& transform_image, Mat& H2_warp, Size warpSize, int FHEIGHT, int FWIDTH) {
-
-    src >> src_frame;
-
-    Mat H, src_gray;
-
-    cvtColor(src_frame, src_gray, cv::COLOR_RGB2GRAY); //Passando frame do vídeo para GrayScale
-
-
-    /*Aplicando a perspectiva nos pontos brancos = (275, 159) (461, 162) (477, 315) (262, 322)*/
-    /*Vetores para encontrar a Homography*/
-    vector<Point2f> inputQuad, outputQuad;
-    /*Vetores para reaplicar a Homography e ajustar a imagem na tela*/
-    vector<Point2f> cornerQuad, finalCornerQuad;
-    /*Vetores para encontrar o centro do círculo*/
-    vector<Point2f> center, centerTrans;
-
-    /*Encontrando a Homography*/
-    /*Pontos para serem modificados*/
-    inputQuad.push_back(Point2f(275, 159));
-    inputQuad.push_back(Point2f(461, 162));
-    inputQuad.push_back(Point2f(477, 315));
-    inputQuad.push_back(Point2f(262, 322));
-
-    /*Nova localização dos pontos*/
-    outputQuad.push_back(Point2f(199, 199));
-    outputQuad.push_back(Point2f(301, 202));
-    outputQuad.push_back(Point2f(302, 298));
-    outputQuad.push_back(Point2f(199, 302));
-
-    H = findHomography(inputQuad, outputQuad, LMEDS);
-
-    /*Encontrando a nova perspectiva gerada pela Homography*/
-    cornerQuad.push_back(Point2f(0, 0));
-    cornerQuad.push_back(Point2f(src_gray.cols, 0));
-    cornerQuad.push_back(Point2f(src_gray.cols, src_gray.rows));
-    cornerQuad.push_back(Point2f(0, src_gray.rows));
-
-    perspectiveTransform(cornerQuad, finalCornerQuad, H);
-
-    /*Achando os pontos mínimos e máximos de cada eixo para encontrar o tamanho da nova imagem
-    e rotaciona-la com uma nova Homography*/
-    double minx = INF, maxx = -INF, miny = INF, maxy = -INF;
-    for (int i=0; i < 4; i++){
-        minx = std::min(minx, (double)finalCornerQuad[i].x);
-        miny = std::min(miny, (double)finalCornerQuad[i].y);
-        maxx = std::max(maxx, (double)finalCornerQuad[i].x);
-        maxy = std::max(maxy, (double)finalCornerQuad[i].y);
-    }
-
-    int wwidth = maxx - minx;
-    int wheight = maxy - miny;
-
-    for (int i=0; i < 4; i++){
-        finalCornerQuad[i].x =  (finalCornerQuad[i].x - minx)/( (float) wwidth ) * FWIDTH;
-        finalCornerQuad[i].y = (finalCornerQuad[i].y - miny)/( (float) wheight ) * FHEIGHT;
-    }
-
-    H2_warp = findHomography(cornerQuad, finalCornerQuad, LMEDS);
-
-    warpPerspective(src_gray, transform_image, H2_warp, warpSize);
-
-    /*Pegando o centro do círculo da imagem transformada*/
-    centerTrans.push_back(Point2f((float)240/( (float) wwidth)*FWIDTH, (float)189.5/((float) wheight)*FHEIGHT));
-
-    invH_warp = findHomography(finalCornerQuad, cornerQuad, LMEDS);
-
-    perspectiveTransform(centerTrans, center, invH_warp);
-    perspectiveTransform(center, centerTrans, H2_warp);
-    centerX = centerTrans[0].x;
-    centerY = centerTrans[0].y;
-
-}
-
 void MainWindow::aplica_perspectiva() {
     Mat src_gray;
 
@@ -537,8 +465,8 @@ void MainWindow::processa_video() {
     //Mudar para last frame
     if(src_frame.empty()) {
         tmrTimer->stop();
+        fileTest.close();
         encerra_video();
-        //QMessageBox::information(this, tr ("Teste"), tr("O video terminou."));
     }else{
 
         aplica_perspectiva();
@@ -587,25 +515,28 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         }
     }
 
+
     //Caso nao detectarmos o rato
     if (i >= contours.size() || area == 0){
 
+        //Coordinates
+        coordAtual = coordBefore;
+        coordinates.push_back(coordAtual);
+        saveRatInfos(coordBefore, coordAtual, false, fileTest, frames, fps);
+
         //Setando status
         stringstream status1;
-        status1 << "Rato nao encontrado! Ultimas coordenadas: (" << coordX << ", " << coordY << ").";
+        status1 << "Rato nao encontrado! Ultimas coordenadas: (" << coordAtual.x << ", " << coordAtual.y << ").";
         string status = status1.str();
         ui->lbStatus->setText(QString::fromStdString(status));
-
-        //Adicionando coordenadas
-        coordinates.push_back(Point2f(0, 0));
 
         //Configurando a imagem na tela
         Mat p = paint();
         addWeighted(perspective_frame, 1, p, 1, 0.0, perspective_frame); //Adicionando tracking a imagem
 
         //Aplicando perspectiva
-        warpPerspective(perspective_frame, original_frame, invH_warp, src_frame.size());
-        warpPerspective(p, p, invH_warp, p.size());
+        warpPerspective(perspective_frame, original_frame, H2_warp.inv(), src_frame.size());
+        warpPerspective(p, p, H2_warp.inv(), p.size());
 
         //Mostrando na tela
         if(original == 1) mostrar_imagem(original_frame);
@@ -623,16 +554,14 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         vector<Point2f> mc( contours.size() );
         mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 );
 
-
-        //Setando status
-        coordX = mc[i].x;
-        coordY = mc[i].y;
-
-        //Adicionando coordenadas
-        coordinates.push_back(Point2f(coordX, coordY));
+        //Coordenadas
+        coordBefore = coordAtual;
+        coordAtual = mc[i];
+        coordinates.push_back(coordAtual);
+        saveRatInfos(coordBefore, coordAtual, true, fileTest, frames, fps);
 
         stringstream status1;
-        status1 << "Rato encontrado! Coordenadas: (" << coordX << ", " << coordY << ").";
+        status1 << "Rato encontrado! Coordenadas: (" << coordAtual.x << ", " << coordAtual.y << ").";
         string status = status1.str();
         ui->lbStatus->setText(QString::fromStdString(status));
 
@@ -646,7 +575,7 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         circle( perspective_frame, mc[i], 2.5, Scalar(0,255,0), -1);
 
         addWeighted(perspective_frame, 1, p, 1, 0.0, perspective_frame); //Adicionando tracking a imagem
-        warpPerspective(perspective_frame, original_frame, invH_warp, src_frame.size()); //Aplicando perspectiva
+        warpPerspective(perspective_frame, original_frame, H2_warp.inv(), src_frame.size()); //Aplicando perspectiva
 
         //Criando imagem da tela
         original_frame.copyTo(tela_image(Rect(0, 0, original_frame.cols, original_frame.rows)));
@@ -657,6 +586,8 @@ void MainWindow::tracking(Mat aux, Mat track_image) {
         else mostrar_imagem(perspective_frame);
 
     }
+
+    frames++;
 }
 
 Mat MainWindow::paint() {
@@ -685,18 +616,52 @@ Mat MainWindow::paint() {
 
 void MainWindow::rattrack() {
 
+    //Coordinates
+    coordBefore = coordAtual = Point2d(0,0);
+
+    //Criando diretorio para os testes
+    QDir dir(QString::fromStdString(TESTES_DIR_NAME));
+    if(!dir.exists())
+        QDir().mkdir(dir.absolutePath());
+
+    //Criando diretorio para o rato
+    QDir dir1(QString::fromStdString(TESTES_DIR_NAME) + "/" + animal);
+    if(!dir1.exists())
+        QDir().mkdir(dir1.absolutePath());
+
+    //FileTest
+    const string name1= dir1.absolutePath().toAscii().data() + MED_FILE_NAME;
+    fileTest.open(name1.c_str());
+    fileTest << "frame, tempo, metros, velocidade, aceleracao" << endl;
+
+    //Video informations
     FHEIGHT = src.get(CV_CAP_PROP_FRAME_HEIGHT);
     FWIDTH = src.get(CV_CAP_PROP_FRAME_WIDTH);
 
+    //Mat initialization
     transform_image = Mat::zeros( FHEIGHT, FWIDTH, CV_8U );
     tela_image = Mat(FHEIGHT, FWIDTH*2, CV_8UC3, Scalar(0));
     track_image = Mat(FHEIGHT, FWIDTH, CV_32S);
-
     warpSize = Size(FWIDTH, FHEIGHT);
 
-    //Calcula a Matriz H2
-    acha_perspectiva(transform_image, H2_warp, warpSize, FHEIGHT, FWIDTH);
-    reset_video();
+    //Resgatando informacoes sobre Homography
+    FileStorage fs(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME, FileStorage::READ);
+    if( !fs.isOpened()) {
+        QMessageBox::critical(this, tr("Erro"), tr("Para realizacao do teste, eh necessario calibrar a camera!\nTeste cancelado!"));
+        return;
+    }
+    fs["homography_matrix"] >> H2_warp;
+    if(H2_warp.empty()) {
+        QMessageBox::critical(this, tr("Erro"), tr("Impossivel encontrar matriz de calibracao!\nTeste cancelado!"));
+        return;
+    }
+    Point center;
+    fs["center_circle"] >> center;
+    centerX = center.x;
+    centerY = center.y;
+    fs["radius"] >> raio;
+    fs["pixel_ratio"] >> pixelRatio;
+    fs.release();
 
     //Aplica a matriz H2 em cada frame do video
     tmrTimer = new QTimer();
@@ -704,6 +669,28 @@ void MainWindow::rattrack() {
     tmrTimer->start(fps);
 
     waitKey(0); // key press to close window
+}
+
+void MainWindow::saveRatInfos(Point2d before, Point2d atual, bool find, ofstream& fileTest, int frames, double fps) {
+
+    if(frames==0) return;
+
+    //Calc time
+    double time = 1.0/fps;
+
+   if(!find) fileTest << frames << ", " << time << ", , , " << endl;
+   else {
+
+       //Calc meters
+       double xDiff = before.x - atual.x;
+       double yDiff = before.y - atual.y;
+       double meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*pixelRatio;
+
+       double vel = meters/time;
+       double acel = vel/time;
+
+       fileTest << frames << ", " << time << ", " << meters << ", " << vel << ", " << acel << endl;
+   }
 }
 
 void MainWindow::mostrar_imagem(Mat frame) {
@@ -715,176 +702,108 @@ void MainWindow::mostrar_imagem(Mat frame) {
     ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
 }
 
-void MainWindow::salvar_imagens() {
-    QString dirTela = "", dirOriginal = "", dirPerspectiva = "", dirCaminho = "", dirAprendizagem = "";
+void MainWindow::saveImages() {
+
     string save;
 
-    Mat aprendizagem_image = gera_IA();
+    //Criando diretorio para os testes
+    QDir dir(QString::fromStdString(TESTES_DIR_NAME));
+    if(!dir.exists())
+        QDir().mkdir(dir.absolutePath());
 
-    //Original
-    if(ui->cbOriginal->isChecked()) {
-
-        ui->lbStatus->setText("Salvando Original...");
-
-        //Gerando nome do arquivo
-        stringstream filename;
-        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Original.bmp";
-        save = filename.str();
-
-        //Salvando
-        dirOriginal = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
-
-        //Verificacao do nome modificado
-        if(dirOriginal != ".bmp") {
-            dirOriginal = dirOriginal.toUtf8().data();
-            imwrite(dirOriginal.toAscii().data(), original_frame);
-            ui->lbStatus->setText("Original salvo com sucesso!");
-        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
-    }
-
-    //Perspectiva
-    if(ui->cbPerspectiva->isChecked()) {
-
-        ui->lbStatus->setText("Salvando Perspectiva...");
-
-        //Gerando nome do arquivo
-        stringstream filename;
-        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Perspectiva.bmp";
-        save = filename.str();
-
-        //Salvando
-        dirPerspectiva = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
-
-        //Verificacao do nome modificado
-        if(dirPerspectiva != ".bmp") {
-            dirPerspectiva = dirPerspectiva.toUtf8().data();
-            imwrite(dirPerspectiva.toAscii().data(), perspective_frame);
-            ui->lbStatus->setText("Perspectiva salva com sucesso!");
-        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
-    }
-
-    //Tela
-    if(ui->cbTela->isChecked()) {
-
-        ui->lbStatus->setText("Salvando Tela...");
-
-        //Gerando nome do arquivo
-        stringstream filename;
-        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Tela.bmp";
-        save = filename.str();
-
-        //Salvando
-        dirTela = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
-
-        //Verificacao do nome modificado
-        if(dirTela != ".bmp") {
-            dirTela = dirTela.toUtf8().data();
-            imwrite(dirTela.toAscii().data(), tela_image);
-            ui->lbStatus->setText("Tela salva com sucesso!");
-        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
-    }
+    //Criando diretorio para o rato
+    QDir dir1(QString::fromStdString(TESTES_DIR_NAME) + "/" + animal);
+    if(!dir1.exists())
+        QDir().mkdir(dir1.absolutePath());
 
     //Caminho
     if(ui->cbPath->isChecked()) {
 
         ui->lbStatus->setText("Salvando Caminho...");
 
-        //Gerando nome do arquivo
+        //Gerando nome da imagem
         stringstream filename;
-        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Caminho.bmp";
+        filename << dir1.absolutePath().toAscii().data() << "/caminho_teste_" << teste.toAscii().data() << ".bmp";
         save = filename.str();
 
-        //Salvando
-        dirCaminho = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+        //Salvando imagem
+        imwrite(save, track_image);
 
-        //Verificacao do nome modificado
-        if(dirCaminho != ".bmp") {
-            dirCaminho = dirCaminho.toUtf8().data();
-            imwrite(dirCaminho.toAscii().data(), track_image);
-            ui->lbStatus->setText("Caminho salvo com sucesso!");
-        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+        ui->lbStatus->setText("Salvo!");
     }
 
     //Aprendizado
     if(ui->cbIA->isChecked()) {
 
         ui->lbStatus->setText("Salvando Aprendizado...");
+        Mat aprendizagem_image = gera_IA();
 
-        //Gerando nome do arquivo
+        //Gerando nome da imagem
         stringstream filename;
-        filename << animal.toAscii().data() << "_teste_" << teste.toAscii().data() << "_Aprendizado.bmp";
+        filename << dir1.absolutePath().toAscii().data() << "/aprendizado_teste_" << teste.toAscii().data() << ".bmp";
         save = filename.str();
 
-        //Salvando
-        dirAprendizagem = QFileDialog::getSaveFileName(this, tr("Salvar Teste"), QString::fromStdString(save), tr("Image File (*.bmp);;All Files (*)"));
+        //Salvando imagem
+        imwrite(save, aprendizagem_image);
 
-        //Verificacao do nome modificado
-        if(dirAprendizagem != ".bmp") {
-            dirAprendizagem = dirAprendizagem.toUtf8().data();
-            imwrite(dirAprendizagem.toAscii().data(), aprendizagem_image);
-            ui->lbStatus->setText("Aprendizado salvo com sucesso!");
-        }else cout << "Erro! Por favor insira o nome do arquivo!" << "\n";
+        ui->lbStatus->setText("Aprendizado salvo com sucesso!");
     }
 }
 
 void MainWindow::encerra_video() {
 
-    salvar_imagens();
+    saveImages();
 
     //Verificando se estamos em um diretorio ou apenas um arquivo
-    //Arquivo
-    if(contFiles == INF) {
-        reset_interface();
-        QMessageBox::information(this, tr("Fim de teste!"), tr("A analise acabou!"));
+    while(1) {
 
-        //Diretorio
-    }else{
+        //Apenas um arquivo
+        if(contFiles == INF) break;
 
         contFiles++;
 
-        if(contFiles < numberFiles) {
+        //Ja verificou todos os arquivos do diretorio
+        if(contFiles == numberFiles) break;
 
-            //Resetar as variaveis do rattrack
-            resetar_variaveis();
+        //Resetar as variaveis do rattrack
+        resetar_variaveis();
 
-            //Resetar tela
-            ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
-            QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
-            ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
+        //Resetar tela
+        ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);"); //Fundo preto do video
+        QImage show_image((const uchar *) src_frame.data, src_frame.cols, src_frame.rows, src_frame.step, QImage::Format_RGB888);
+        ui->lbOriginal->setPixmap(QPixmap::fromImage(show_image));
 
-            //Resetar GUI
-            ui->frameTools->setEnabled(false);
-            ui->cbOriginal->setChecked(false);
-            ui->cbPerspectiva->setChecked(false);
-            ui->cbPath->setChecked(false);
-            ui->cbIA->setChecked(false);
-            ui->cbTela->setChecked(false);
-            ui->btFile->setEnabled(false);
-            ui->btIniciar->setEnabled(true);
+        //Resetar GUI
+        ui->frameTools->setEnabled(false);
+        ui->cbVelo->setChecked(false);
+        ui->cbAceleracao->setChecked(false);
+        ui->cbPath->setChecked(false);
+        ui->cbIA->setChecked(false);
+        ui->btFile->setEnabled(false);
+        ui->btIniciar->setEnabled(true);
 
-            setFileName(contFiles);
+        setFileName(contFiles);
 
-            //Trocando Label por Caixa de texto para insercao do nome e numero do teste
-            inputNameTeste();
+        //Trocando Label por Caixa de texto para insercao do nome e numero do teste
+        inputNameTeste();
 
-            //Destravando as configuracoes
-            ui->frameImagens->setEnabled(true);
-            ui->btIniciar->setEnabled(true);
-            ui->label->setEnabled(true);
-            ui->label_2->setEnabled(true);
-            ui->label_4->setEnabled(true);
+        //Destravando as configuracoes
+        ui->frameImagens->setEnabled(true);
+        ui->btIniciar->setEnabled(true);
+        ui->label->setEnabled(true);
+        ui->label_2->setEnabled(true);
+        ui->label_4->setEnabled(true);
 
-            argv = fileList.at(contFiles);
+        argv = fileList.at(contFiles);
 
-            ui->lbStatus->setText("Aguardando usuario...");
-            QMessageBox::information(this, tr("Novo video"), tr ("Por favor, preencha os campos 'Animal' e 'Teste' e inicie o proximo video clicando no botao 'Iniciar Teste'"));
+        ui->lbStatus->setText("Aguardando usuario...");
+        QMessageBox::information(this, tr("Novo video"), tr ("Por favor, preencha os campos 'Animal' e 'Teste' e inicie o proximo video clicando no botao 'Iniciar Teste'"));
 
-        }else{
-            reset_interface();
-            QMessageBox::information(this, tr("Fim de teste!"), tr("A analise acabou!"));
-
-        }
     }
+
+    reset_interface();
+    QMessageBox::information(this, tr("Fim de teste!"), tr("A analise acabou!"));
+
 }
 
 Mat MainWindow::gera_IA() {
@@ -906,533 +825,209 @@ Mat MainWindow::gera_IA() {
 }
 
 //Calibration functions
-void MainWindow::captureImagesCalibration(
-        int* numSquares, int* numCornersHor,
-        int* numCornersVer, int* numCorners,
-        Size* board_sz, vector<Point2f> corners) {
+void MainWindow::calibrationCamera() {
+    int board_w, board_h;
+    int n_boards;
+    float measure = 25;
+    Size imageSize;
 
-    *numCornersHor = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas horizontais: "));
-    *numCornersVer = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas verticais: "));
-    *numSquares = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de quadrados: "));
+    vector< vector< Point2f> > imagePoints;
+    vector< vector< Point3f> > objectPoints;
 
-    *numCorners = (*numCornersHor) * (*numCornersVer);
-    *board_sz = Size(*numCornersHor, *numCornersVer);
+    //NECESSARY INFORMATIONS
+    board_w = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas horizontais: "));
+    board_h = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas verticais: "));
+    n_boards = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de quadrados: "));
+    measure = QInputDialog::getInt(this, tr("Calibracao"), tr("Medida dos quadrados: "));
 
+    cout << "Bordas horizontais: " << board_w << "\nBordas verticais: " << board_h <<
+            "\nNumero de quadrados: " << n_boards << "\nMedida do quadrado: " <<
+            measure << "\n";
+
+    //LOAD IMAGES
+
+    //Open video file
     QString argv2 = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
-
-    //cout << argv2.toAscii().data() << "\n";
-
-    //VideoCapture capture;
-    //capture.open(0);
-
     VideoCapture capture;
     capture.open(argv2.toAscii().data());
 
     if(!capture.isOpened()){
-        cout << "kraio mano" << "\n";
+        QMessageBox::critical(this, tr("Calibracao"), tr("Impossivel ler arquivo de video! Calibração cancelada!"));
         return;
     }
 
-    stringstream img;
-    img << CALIBRATION_DIR_NAME << "/calib";
-    string imageName = img.str();
-
     int successes=0;
-
     Mat image;
-    Mat image_calib;
     Mat gray_image;
-
-    //Criando arquivo .xml
-    FileStorage fs;
-    std::stringstream fileName;
-    fileName << CALIBRATION_DIR_NAME << XML_FILE_NAME;
-    fs.open(fileName.str(), cv::FileStorage::WRITE);
-    int imageSaveIndex = 1;
-
-    fs << "images" << "[";
+    vector< Point2f> corners;
 
     QMessageBox::information(this, tr("Calibracao"), tr("Para cada formato de tabuleiro sera necessario capturar uma certa"
                                                         " quantidade de imagens!\nPara captura pressione a tecla ENTER.\n"
                                                         "Para sair pressione a tecla ESC."));
-
-    while(successes < *numSquares) {
+    while(successes < n_boards) {
 
         capture >> image;
-
         cvtColor(image, gray_image, CV_RGB2GRAY);
 
-        equalizeHist(gray_image, image_calib);
-
         //Encontrando ChessBoardPattern
-        bool found = findChessboardCorners(image_calib, *board_sz, corners, CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
+        bool found = findChessboardCorners(gray_image, Size(board_w, board_h), corners);
 
-        //Se foi encontrado, desenhamos na imagem
+        //Se foi encontrado preparamos para calibração
         if(found) {
-            cornerSubPix(image_calib, corners, Size(11, 11), Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
-            drawChessboardCorners(image, *board_sz, corners, found);
+            cornerSubPix(gray_image, corners, Size(11, 11), Size(-1, -1),
+                         TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
+
+            drawChessboardCorners(image, Size(board_w, board_h), corners, found);
+
+            if((int)corners.size() == board_w*board_h) {
+                vector< Point2f> v_tImgPT;
+                vector< Point3f> v_tObjPT;
+
+                for(int i = 0; i < (int)corners.size(); ++i) {
+                    Point2f tImgPT;
+                    Point3f tObjPT;
+
+                    tImgPT.x = corners[i].x;
+                    tImgPT.y = corners[i].y;
+
+                    tObjPT.x = i%board_w*measure;
+                    tObjPT.y = i/board_w*measure;
+                    tObjPT.z = 0;
+
+                    v_tImgPT.push_back(tImgPT);
+                    v_tObjPT.push_back(tObjPT);
+                }
+
+                imagePoints.push_back(v_tImgPT);
+                objectPoints.push_back(v_tObjPT);
+            }
         }
 
-        string msg = format("Capturando %d/%d", imageSaveIndex, *numSquares/3);
+        //Name of image that going to be save
+        stringstream img;
+        img << CALIBRATION_DIR_NAME << "/calib" << ++successes << ".bmp";
+        string imageName = img.str();
 
-        int baseLine = 0;
-        Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
-        Point textOrigin(image.cols - 2*textSize.width - 10, image.rows - 2*baseLine - 10);
-        putText( image, msg, textOrigin, 1, 1, Scalar(0,255,0));
-
-        imshow("Calib", image);
-
-        //Comandos pelo teclado
-        int key = waitKey(1);
-
-        //Esc para sair
-        if(key==27) return;
-
-        //Enter para capturar
-        if(key==13 && found!=0) {
-
-            //Nome da imagem
-            std::stringstream filename;
-            filename << imageName << "_" << imageSaveIndex << ".bmp";
-            std::string dir = filename.str();
-
-            //Salvando imagem em diretorio e no arquivo .xml
-            imwrite(dir, gray_image);
-            fs << dir;
-            imageSaveIndex++;
-
-            successes+=3;
-
-            if(successes>=*numSquares)
-                break;
-        }
+        imageSize = Size(image.cols, image.rows);
+        imwrite(imageName, image);
+        imshow("calib", image);
+        waitKey(10);
     }
 
-    image.release();
+    //SAVING INFOS
+    saveInfos(imageSize, board_w, board_h, n_boards, measure);
 
+    //CALIBRATION - Don't necessary
+    vector< Mat> rvecs, tvecs;
+    Mat intrinsic_Matrix(3, 3, CV_64F);
+    Mat distortion_coeffs(8, 1, CV_64F);
 
-    //Encerrando arquivo .xml
-    fs << "]";
+    calibrateCamera(objectPoints, imagePoints, imageSize, intrinsic_Matrix, distortion_coeffs, rvecs, tvecs);
 
-    capture.release();
+    //SAVING CALIBRATION
+    saveCalibration(intrinsic_Matrix, distortion_coeffs, rvecs, tvecs, objectPoints, imagePoints);
+
+    //HOMOGRAPHY
+    vector< Point2f> srcPoints;
+    vector< Point2f> dstPoints;
+    Point2f point1, point2, point3, point4;
+
+    point1.x = 0;
+    point1.y = 0;
+    point2.x = 0;
+    point2.y = 0;
+    point3.x = 0;
+    point3.y = 0;
+    point4.x = 0;
+    point4.y = 0;
+
+    for(int i = 0; i < (int)imagePoints.size(); i++) {
+
+        point1.x = point1.x + (imagePoints[i][board_w-1]).x;
+        point1.y = point1.y + (imagePoints[i][board_w-1]).y;
+        point2.x = point2.x + (imagePoints[i][0]).x;
+        point2.y = point2.y + (imagePoints[i][0]).y;
+        point3.x = point3.x + (imagePoints[i][board_w*board_h - (board_w)]).x;
+        point3.y = point3.y + (imagePoints[i][board_w*board_h - (board_w)]).y;
+        point4.x = point4.x + (imagePoints[i][board_w*board_h - 1]).x;
+        point4.y = point4.y + (imagePoints[i][board_w*board_h - 1]).y;
+    }
+
+    point1.x = point1.x / (float)n_boards;
+    point1.y = point1.y / (float)n_boards;
+    point2.x = point2.x / (float)n_boards;
+    point2.y = point2.y / (float)n_boards;
+    point3.x = point3.x / (float)n_boards;
+    point3.y = point3.y / (float)n_boards;
+    point4.x = point4.x / (float)n_boards;
+    point4.y = point4.y / (float)n_boards;
+
+    srcPoints.push_back(point1);
+    srcPoints.push_back(point2);
+    srcPoints.push_back(point3);
+    srcPoints.push_back(point4);
+
+    int L = 100;
+    double pixelRatio = measure / L;
+
+    dstPoints.push_back(Point2f(299, 299));
+    dstPoints.push_back(Point2f(299+L, 299));
+    dstPoints.push_back(Point2f(299+L, 299-L));
+    dstPoints.push_back(Point2f(299, 299-L));
+
+    Mat homography = findHomography(srcPoints, dstPoints, LMEDS);
+
+    vector< Point2f> cornerQuad, finalCornerQuad;
+
+    cornerQuad.push_back(Point2f(0, 0));
+    cornerQuad.push_back(Point2f(imageSize.width, 0));
+    cornerQuad.push_back(Point2f(imageSize.width, imageSize.height));
+    cornerQuad.push_back(Point2f(0, imageSize.height));
+
+    perspectiveTransform(cornerQuad, finalCornerQuad, homography);
+
+    //Achando os pontos mínimos e máximos de cada eixo para encontrar o tamanho da nova imagem
+    //* e rotaciona-la com uma nova Homography
+
+    double minx = INF, maxx = -INF, miny = INF, maxy = -INF;
+    for (int i=0; i < 4; i++){
+        minx = std::min(minx, (double)finalCornerQuad[i].x);
+        miny = std::min(miny, (double)finalCornerQuad[i].y);
+        maxx = std::max(maxx, (double)finalCornerQuad[i].x);
+        maxy = std::max(maxy, (double)finalCornerQuad[i].y);
+    }
+
+    int wwidth = maxx - minx;
+    int wheight = maxy - miny;
+
+    for (int i=0; i < 4; i++){
+        finalCornerQuad[i].x =  (finalCornerQuad[i].x - minx)/( (float) wwidth ) * imageSize.width;
+        finalCornerQuad[i].y = (finalCornerQuad[i].y - miny)/( (float) wheight ) * imageSize.height;
+    }
+
+    Mat homography2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
+
+    Mat applyHomography;
+    warpPerspective(gray_image, applyHomography, homography2, Size(imageSize.width, imageSize.height));
+
+    vector<Vec3f> circles;
+    HoughCircles(applyHomography, circles, HOUGH_GRADIENT, 1, 10, 100, 30, 110, 133);
+
+    Vec3i c = circles[0];
+
+    imshow("calib", applyHomography);
+    waitKey();
+
+    imwrite(CALIBRATION_DIR_NAME + "/homographyApply.bmp", applyHomography);
+
+    //SAVING HOMOGRAPHY
+    saveHomography(srcPoints, dstPoints, homography2, Point(c[0], c[1]), c[2], pixelRatio);
+
+    destroyWindow("calib");
+
 }
 
-double MainWindow::computeReprojectionErrors(
-        const vector<vector<Point3f> >& objectPoints,
-        const vector<vector<Point2f> >& imagePoints,
-        const vector<Mat>& rvecs, const vector<Mat>& tvecs,
-        const Mat& cameraMatrix, const Mat& distCoeffs,
-        vector<float>& perViewErrors ) {
-
-    vector<Point2f> imagePoints2;
-    int i, totalPoints = 0;
-    double totalErr = 0, err;
-    perViewErrors.resize(objectPoints.size());
-
-    for( i = 0; i < (int)objectPoints.size(); i++ ) {
-        projectPoints(Mat(objectPoints[i]), rvecs[i], tvecs[i],
-                      cameraMatrix, distCoeffs, imagePoints2);
-        err = norm(Mat(imagePoints[i]), Mat(imagePoints2), NORM_L2);
-        int n = (int)objectPoints[i].size();
-        perViewErrors[i] = (float)std::sqrt(err*err/n);
-        totalErr += err*err;
-        totalPoints += n;
-    }
-
-    return std::sqrt(totalErr/totalPoints);
-}
-
-void MainWindow::calcChessboardCorners(
-        Size boardSize,
-        float squareSize,
-        vector<Point3f>& corners) {
-    corners.resize(0);
-
-    for( int i = 0; i < boardSize.height; i++ )
-        for( int j = 0; j < boardSize.width; j++ )
-            corners.push_back(Point3f(float(j*squareSize),
-                                      float(i*squareSize), 0));
-}
-
-bool MainWindow::runCalibration(
-        vector<vector<Point2f> > imagePoints,
-        Size imageSize, Size boardSize,
-        float squareSize, float aspectRatio,
-        int flags, Mat& cameraMatrix, Mat& distCoeffs,
-        vector<Mat>& rvecs, vector<Mat>& tvecs,
-        vector<float>& reprojErrs, double& totalAvgErr) {
-
-    cameraMatrix = Mat::eye(3, 3, CV_64F);
-    if( flags & CALIB_FIX_ASPECT_RATIO )
-        cameraMatrix.at<double>(0,0) = aspectRatio;
-
-    distCoeffs = Mat::zeros(8, 1, CV_64F);
-
-    vector<vector<Point3f> > objectPoints(1);
-    calcChessboardCorners(boardSize, squareSize, objectPoints[0]);
-
-    objectPoints.resize(imagePoints.size(),objectPoints[0]);
-
-    double rms = calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix,
-                                 distCoeffs, rvecs, tvecs, flags|CALIB_FIX_K4|CALIB_FIX_K5);
-    ///*|CALIB_FIX_K3*/|CALIB_FIX_K4|CALIB_FIX_K5);
-
-    cout << "RMS error reported by calibrateCamera: " << rms << "\n";
-
-    bool ok = checkRange(cameraMatrix) && checkRange(distCoeffs);
-
-    totalAvgErr = computeReprojectionErrors(objectPoints, imagePoints,
-                                            rvecs, tvecs, cameraMatrix, distCoeffs, reprojErrs);
-
-    return ok;
-}
-
-void MainWindow::saveCameraParams(
-        const string& filename, Size imageSize, Size boardSize,
-        float squareSize, float aspectRatio, int flags,
-        const Mat& cameraMatrix, const Mat& distCoeffs,
-        const vector<Mat>& rvecs, const vector<Mat>& tvecs,
-        const vector<float>& reprojErrs,
-        const vector<vector<Point2f> >& imagePoints,
-        double totalAvgErr ) {
-
-    std::cout << "Writing to " << filename << std::endl;
-    FileStorage fs( filename, FileStorage::WRITE );
-
-    time_t tt;
-    time( &tt );
-    struct tm *t2 = localtime( &tt );
-    char buf[1024];
-    strftime( buf, sizeof(buf)-1, "%c", t2 );
-
-    fs << "calibration_time" << buf;
-
-    if( !rvecs.empty() || !reprojErrs.empty() )
-        fs << "nframes" << (int)std::max(rvecs.size(), reprojErrs.size());
-    fs << "image_width" << imageSize.width;
-    fs << "image_height" << imageSize.height;
-    fs << "board_width" << boardSize.width;
-    fs << "board_height" << boardSize.height;
-    fs << "square_size" << squareSize;
-
-    if( flags & CALIB_FIX_ASPECT_RATIO )
-        fs << "aspectRatio" << aspectRatio;
-
-    if( flags != 0 )
-    {
-        sprintf( buf, "flags: %s%s%s%s",
-                 flags & CALIB_USE_INTRINSIC_GUESS ? "+use_intrinsic_guess" : "",
-                 flags & CALIB_FIX_ASPECT_RATIO ? "+fix_aspectRatio" : "",
-                 flags & CALIB_FIX_PRINCIPAL_POINT ? "+fix_principal_point" : "",
-                 flags & CALIB_ZERO_TANGENT_DIST ? "+zero_tangent_dist" : "" );
-        //cvWriteComment( *fs, buf, 0 );
-    }
-
-    fs << "flags" << flags;
-
-    fs << "camera_matrix" << cameraMatrix;
-    fs << "distortion_coefficients" << distCoeffs;
-
-    fs << "avg_reprojection_error" << totalAvgErr;
-    if( !reprojErrs.empty() )
-        fs << "per_view_reprojection_errors" << Mat(reprojErrs);
-
-    if( !rvecs.empty() && !tvecs.empty() )
-    {
-        CV_Assert(rvecs[0].type() == tvecs[0].type());
-        Mat bigmat((int)rvecs.size(), 6, rvecs[0].type());
-        for( int i = 0; i < (int)rvecs.size(); i++ )
-        {
-            Mat r = bigmat(Range(i, i+1), Range(0,3));
-            Mat t = bigmat(Range(i, i+1), Range(3,6));
-
-            CV_Assert(rvecs[i].rows == 3 && rvecs[i].cols == 1);
-            CV_Assert(tvecs[i].rows == 3 && tvecs[i].cols == 1);
-            //*.t() is MatExpr (not Mat) so we can use assignment operator
-            r = rvecs[i].t();
-            t = tvecs[i].t();
-        }
-        //cvWriteComment( *fs, "a set of 6-tuples (rotation vector + translation vector) for each view", 0 );
-        fs << "extrinsic_parameters" << bigmat;
-    }
-
-    if( !imagePoints.empty() )
-    {
-        Mat imagePtMat((int)imagePoints.size(), (int)imagePoints[0].size(), CV_32FC2);
-        for( int i = 0; i < (int)imagePoints.size(); i++ )
-        {
-            Mat r = imagePtMat.row(i).reshape(2, imagePtMat.cols);
-            Mat imgpti(imagePoints[i]);
-            imgpti.copyTo(r);
-        }
-        fs << "image_points" << imagePtMat;
-    }
-}
-
-bool MainWindow::readStringList(
-        const string& filename, vector<string>& l ) {
-
-    l.resize(0);
-    FileStorage fs(filename, FileStorage::READ);
-    if( !fs.isOpened() )
-        return false;
-    FileNode n = fs.getFirstTopLevelNode();
-    if( n.type() != FileNode::SEQ )
-        return false;
-    FileNodeIterator it = n.begin(), it_end = n.end();
-    for( ; it != it_end; ++it )
-        l.push_back((string)*it);
-    return true;
-}
-
-bool MainWindow::runAndSave(
-        const string& outputFilename,
-        const vector<vector<Point2f> >& imagePoints,
-        Size imageSize, Size boardSize, float squareSize,
-        float aspectRatio, int flags, Mat& cameraMatrix,
-        Mat& distCoeffs, bool writeExtrinsics, bool writePoints ) {
-
-    vector<Mat> rvecs, tvecs;
-    vector<float> reprojErrs;
-    double totalAvgErr = 0;
-
-    bool ok = runCalibration(imagePoints, imageSize, boardSize, squareSize,
-                             aspectRatio, flags, cameraMatrix, distCoeffs,
-                             rvecs, tvecs, reprojErrs, totalAvgErr);
-
-    printf("%s. avg reprojection error = %.2f\n",
-           ok ? "Calibration succeeded" : "Calibration failed",
-           totalAvgErr);
-
-    if( ok )
-        saveCameraParams( outputFilename, imageSize,
-                          boardSize, squareSize, aspectRatio,
-                          flags, cameraMatrix, distCoeffs,
-                          writeExtrinsics ? rvecs : vector<Mat>(),
-                          writeExtrinsics ? tvecs : vector<Mat>(),
-                          writeExtrinsics ? reprojErrs : vector<float>(),
-                          writePoints ? imagePoints : vector<vector<Point2f> >(),
-                          totalAvgErr );
-    return ok;
-}
-
-bool MainWindow::getCalibrationCamera(Size* boardSize, vector<Point2f> corners, string getErro) {
-    Size imageSize;
-    float squareSize = 5, aspectRatio = 1;
-    Mat cameraMatrix, distCoeffs;
-    string outputFilename = CALIBRATION_DIR_NAME + YML_FILE_NAME;
-    string inputFilename = CALIBRATION_DIR_NAME + XML_FILE_NAME;
-
-    int i, nframes = 10;
-    bool writeExtrinsics = true, writePoints = true;
-    int flags = 0;
-    int delay = 1000;
-    clock_t prevTimestamp = 0;
-    int mode = DETECTION;
-    vector<vector<Point2f> > imagePoints;
-    vector<string> imageList;
-
-    flags |= CALIB_FIX_ASPECT_RATIO;
-    flags |= CALIB_ZERO_TANGENT_DIST;
-    flags |= CALIB_FIX_PRINCIPAL_POINT;
-
-    if( !inputFilename.empty() ) {
-        if( readStringList(inputFilename, imageList) )
-            mode = CAPTURING;
-    }
-
-    if(imageList.empty()) {
-        getErro = "Lista de imagens vazias!";
-        cout << getErro.c_str() << "\n";
-        return true;
-    }
-
-    if( !imageList.empty() )
-        nframes = (int)imageList.size();
-
-    for(i = 0;;i++) {
-        Mat view, viewGray;
-
-        if( i < (int)imageList.size() )
-            view = imread(imageList[i], 1);
-
-        if(view.empty()) {
-            if( imagePoints.size() > 0 )
-                runAndSave(outputFilename, imagePoints, imageSize,
-                           *boardSize, squareSize, aspectRatio,
-                           flags, cameraMatrix, distCoeffs,
-                           writeExtrinsics, writePoints);
-            break;
-        }
-
-        imageSize = view.size();
-
-        cvtColor(view, viewGray, COLOR_BGR2GRAY);
-
-        bool found;
-        found = findChessboardCorners( view, *boardSize, corners,
-                                       CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FAST_CHECK | CALIB_CB_NORMALIZE_IMAGE);
-
-        // improve the found corners' coordinate accuracy
-        if(found) cornerSubPix( viewGray, corners, Size(11,11),
-                                Size(-1,-1), TermCriteria( TermCriteria::EPS+TermCriteria::COUNT, 30, 0.1 ));
-
-        if(mode == CAPTURING && found && clock() - prevTimestamp > delay*1e-3*CLOCKS_PER_SEC) {
-            imagePoints.push_back(corners);
-            prevTimestamp = clock();
-        }
-
-        if(found)
-            drawChessboardCorners( view, *boardSize, Mat(corners), found );
-
-        imshow("Calib", view);
-
-        if( mode == CAPTURING && imagePoints.size() >= (unsigned)nframes ) {
-            if( runAndSave(outputFilename, imagePoints, imageSize,
-                           *boardSize, squareSize, aspectRatio,
-                           flags, cameraMatrix, distCoeffs,
-                           writeExtrinsics, writePoints))
-                mode = CALIBRATED;
-            else
-                mode = DETECTION;
-        }
-
-        waitKey(50);
-    }
-
-    return false;
-}
-
-bool MainWindow::getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, vector<Point2f> corners, string getErro) {
-    string filename = CALIBRATION_DIR_NAME + YML_FILE_NAME;
-
-    FileStorage fs(filename, FileStorage::READ);
-
-    Mat intrinsic, distortion;
-
-    fs["camera_matrix"] >> intrinsic;
-    fs["distortion_coefficients"] >> distortion;
-
-    if( !fs.isOpened() || intrinsic.empty() || distortion.empty() ) {
-        getErro = "Nao foi possivel carregar os intrinsic parameters do arquivo " + YML_FILE_NAME + "!\n";
-        cout << getErro.c_str() << "\n";
-        return true;
-    }
-
-    fs.release();
-
-    vector<string> imageList;
-    unsigned int indexImageList = 0;
-    Mat gray_image, image, image0;
-
-    if(readStringList(CALIBRATION_DIR_NAME + XML_FILE_NAME, imageList))
-        image0 = imread(imageList[indexImageList]);
-
-    if( image0.empty() ) {
-        getErro = "Nao foi possivel carregar a imagem " + imageList[indexImageList] + "!\n";
-        cout << getErro.c_str() << "\n";
-        return true;
-    }
-
-    bool found = false;
-    while(!found || indexImageList < imageList.size()) {
-        //UNDISTORT OUR IMAGE
-        undistort(image0, image, intrinsic, distortion, intrinsic);
-        cvtColor(image, gray_image, COLOR_BGR2GRAY);
-
-        //GET THE CHECKERBOARD ON THE PLANE
-        bool found = findChessboardCorners(image, *board_sz, corners,
-                                           CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_FILTER_QUADS);
-
-        if(!found) {
-            getErro = "Nao foi possivel encontrar totalmente a chessboard pattern em " + imageList[indexImageList] + "!\n";
-            cout << getErro.c_str() << "\n";
-            return true;
-        }else
-            break;
-
-        indexImageList++;
-
-        if(indexImageList == imageList.size()) {
-            getErro = "Impossivel encontrar a calibracao!";
-            cout << getErro.c_str() << "\n";
-            return true;
-        }
-    }
-
-    //Get Subpixel accuracy on those corners
-    cornerSubPix(gray_image, corners, Size(11,11),Size(-1,-1), TermCriteria( TermCriteria::EPS+TermCriteria::COUNT, 30, 0.1 ));
-
-    //GET THE IMAGE AND OBJECT POINTS:
-    //Object points are at (r,c): (0,0), (*numCornersHor-1,0), (0,*numCornersVer-1), (*numCornersHor-1,*numCornersVer-1)
-    //That means corners are at: corners[r**numCornersHor + c]
-    Point2f objPts[4], imgPts[4];
-    objPts[0].x = 0;         objPts[0].y = 0;
-    objPts[1].x = *numCornersHor-1; objPts[1].y = 0;
-    objPts[2].x = 0;         objPts[2].y = *numCornersVer-1;
-    objPts[3].x = *numCornersHor-1; objPts[3].y = *numCornersVer-1;
-    imgPts[0] = corners[0];
-    imgPts[1] = corners[*numCornersHor-1];
-    imgPts[2] = corners[(*numCornersVer-1)*(*numCornersHor)];
-    imgPts[3] = corners[(*numCornersVer-1)*(*numCornersHor) + *numCornersHor-1];
-
-    //DRAW THE POINTS in order: B,G,R,YELLOW
-    circle(image,imgPts[0],9,Scalar(255,0,0),3);
-    circle(image,imgPts[1],9,Scalar(0,255,0),3);
-    circle(image,imgPts[2],9,Scalar(0,0,255),3);
-    circle(image,imgPts[3],9,Scalar(0,255,255),3);
-
-    //DRAW THE FOUND CHECKERBOARD
-    drawChessboardCorners(image, *board_sz, corners, found);
-    //imshow( "Checkers", image );
-
-    //FIND THE HOMOGRAPHY
-    Mat H = getPerspectiveTransform(objPts, imgPts);
-
-    //LET THE USER ADJUST THE Z HEIGHT OF THE VIEW
-    double Z = 25;
-    Mat birds_image;
-    for(;;) {//escape key stops
-        H.at<double>(2, 2) = Z;
-        //USE HOMOGRAPHY TO REMAP THE VIEW
-        warpPerspective(image, birds_image, H, image.size(), WARP_INVERSE_MAP + INTER_LINEAR,
-                        BORDER_CONSTANT, Scalar::all(0));
-        imshow("Calib", birds_image);
-        int key = waitKey() & 255;
-        if(key == 'u') Z += 0.5;
-        if(key == 'd') Z -= 0.5;
-        if(key == 27) break;
-    }
-
-    //SHOW ROTATION AND TRANSLATION VECTORS
-    vector<Point2f> image_points;
-    vector<Point3f> object_points;
-    for(int i=0;i<4;++i){
-        image_points.push_back(imgPts[i]);
-        object_points.push_back(Point3f(objPts[i].x, objPts[i].y, 0));
-    }
-
-    Mat rvec, tvec, rmat;
-    solvePnP(object_points, image_points, intrinsic, Mat(), rvec, tvec);
-    Rodrigues(rvec, rmat);
-
-    // PRINT AND EXIT
-    cout << "rotation matrix: " << rmat << endl;
-    cout << "translation vector: " << tvec << endl;
-    cout << "homography matrix: " << H << endl;
-    cout << "inverted homography matrix: " << H.inv() << endl;
-
-    return false;
-}
-
-void MainWindow::setCalibrationCamera() {
-
-    int numSquares = 0, numCornersHor, numCornersVer, numCorners;
-    Size board_sz;
-    vector<Point2f> corners;
-    QDir dir(QString::fromStdString((string) CALIBRATION_DIR_NAME));
-    bool erro = false;
-    string getErro;
+void MainWindow::assistCalibration() {
 
     QMessageBox msgBox;
     msgBox.setText("Bem vindo ao assistente de calibracao!");
@@ -1440,31 +1035,18 @@ void MainWindow::setCalibrationCamera() {
     msgBox.setDefaultButton(QMessageBox::Ok);
     int op = msgBox.exec();
 
+    QDir dir(QString::fromStdString((string) CALIBRATION_DIR_NAME));
+
     switch(op) {
+
     case QMessageBox::Ok:
 
         //Criando Pasta para armazenar os arquivos de calibracao
         if(!dir.exists())
             QDir().mkdir(dir.absolutePath());
 
-        //Detectando e salvando imagens para calibracao
-        captureImagesCalibration(&numSquares, &numCornersHor, &numCornersVer, &numCorners, &board_sz, corners);
-
-        //Calibracao
-        erro = getCalibrationCamera(&board_sz, corners, getErro);
-
-        if(erro) {
-            QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
-            return;
-        }
-
-        //Homography
-        erro = getHomographyMatrix(&board_sz, &numCornersHor, &numCornersVer, corners, getErro);
-
-        if(erro) {
-            QMessageBox::critical(this, tr("Calibracao"), tr(getErro.c_str()));
-            return;
-        }
+        //CALIBRATION
+        calibrationCamera();
 
         QMessageBox::information(this, tr("Calibracao"), tr("Calibracao finalizada com sucesso!"));
         break;
@@ -1474,3 +1056,43 @@ void MainWindow::setCalibrationCamera() {
     }
 }
 
+void MainWindow::saveInfos(Size imageSize, int board_w, int board_h, int n_boards, float measure) {
+    FileStorage fs(CALIBRATION_DIR_NAME + INFO_FILE_NAME, FileStorage::WRITE);
+    fs << "image_width" << imageSize.width;
+    fs << "image_height" << imageSize.height;
+    fs << "board_width" << board_w;
+    fs << "board_height" << board_h;
+    fs << "n_boards" << n_boards;
+    fs << "square_size" << measure;
+
+    fs.release();
+}
+
+void MainWindow::saveCalibration(Mat intrinsic_Matrix, Mat distortion_coeffs, vector< Mat> rvecs, vector< Mat> tvecs,
+                                 vector< vector <Point3f> > objectPoints, vector< vector <Point2f> > imagePoints) {
+
+    FileStorage fs(CALIBRATION_DIR_NAME + CALIB_FILE_NAME, FileStorage::WRITE );
+
+    fs << "intrinsic_matrix" << intrinsic_Matrix;
+    fs << "distortion_coeffs" << distortion_coeffs;
+    fs << "rotation_vector" << rvecs;
+    fs << "translation_vector" << tvecs;
+    fs << "object_points" << objectPoints;
+    fs << "image_points" << imagePoints;
+
+    fs.release();
+
+}
+
+void MainWindow::saveHomography(vector<Point2f> srcPoints, vector<Point2f> dstPoints, Mat homography, Point center, int radius, double pixelRatio) {
+    FileStorage fs(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME, FileStorage::WRITE );
+
+    fs << "src_points" << srcPoints;
+    fs << "dst_points" << dstPoints;
+    fs << "homography_matrix" << homography;
+    fs << "center_circle" << center;
+    fs << "radius" << radius;
+    fs << "pixel_ratio" << pixelRatio;
+
+    fs.release();
+}

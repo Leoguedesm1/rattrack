@@ -19,6 +19,7 @@
 #include <string.h>
 #include <time.h>
 #include <cctype>
+#include <fstream>
 
 //Bibliotecas OPENCV
 #include <highgui.h>
@@ -34,6 +35,21 @@
 
 using namespace std;
 using namespace cv;
+
+const string INFO_FILE_NAME = "/info.yml";
+const string CALIB_FILE_NAME = "/calibration.yml";
+const string MED_FILE_NAME = "/medidas.csv";
+const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
+const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Calibration";
+const string TESTES_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Testes";
+
+const double INF = std::numeric_limits<double>::infinity();
+
+//Definindo valores de pixels BRANCO e PRETO
+#define WHITE 255
+#define BLACK 0
+
+enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
 
 namespace Ui {
 class MainWindow;
@@ -72,6 +88,8 @@ private slots:
     void on_btCamConfig_clicked();
     void on_btSair_clicked();
 
+    void on_btSnap_clicked();
+
 
     //Rattrack functions
     void le_video_file(VideoCapture& src, QString argv);
@@ -79,7 +97,6 @@ private slots:
     void reset_video();
     void playorpause_video();
     void rattrack();
-    void acha_perspectiva(Mat& transform_image, Mat& H2_warp, Size warpSize, int FHEIGHT, int FWIDTH);
     void aplica_perspectiva();
     void processa_video();
     void Threshold();
@@ -88,60 +105,22 @@ private slots:
     void mostrar_imagem(Mat frame);
     void resetar_variaveis();
     void encerra_video();
-    void salvar_imagens();
+    void saveImages();
     Mat gera_IA();
+    //double calcMeters();
+    //double calcVelo();
+    //double calcAceleracao();
 
     //Calibration functions
-    void captureImagesCalibration(
-        int* numSquares, int* numCornersHor,
-        int* numCornersVer, int* numCorners,
-        Size* board_sz, vector<Point2f> corners);
+    void calibrationCamera();
+    void assistCalibration();
+    void saveHomography(vector<Point2f> srcPoints, vector<Point2f> dstPoints, Mat homography, Point center, int radius, double pixelRatio);
+    void saveInfos(Size imageSize, int board_w, int board_h, int n_boards, float measure);
+    void saveCalibration(Mat intrinsic_Matrix, Mat distortion_coeffs, vector< Mat> rvecs, vector< Mat> tvecs,
+                                     vector< vector <Point3f> > objectPoints, vector< vector <Point2f> > imagePoints);
 
-    double computeReprojectionErrors(
-            const vector<vector<Point3f> >& objectPoints,
-            const vector<vector<Point2f> >& imagePoints,
-            const vector<Mat>& rvecs, const vector<Mat>& tvecs,
-            const Mat& cameraMatrix, const Mat& distCoeffs,
-            vector<float>& perViewErrors );
 
-    void calcChessboardCorners(
-        Size boardSize,
-        float squareSize,
-        vector<Point3f>& corners);
-
-    bool runCalibration(
-        vector<vector<Point2f> > imagePoints,
-        Size imageSize, Size boardSize,
-        float squareSize, float aspectRatio,
-        int flags, Mat& cameraMatrix, Mat& distCoeffs,
-        vector<Mat>& rvecs, vector<Mat>& tvecs,
-        vector<float>& reprojErrs, double& totalAvgErr);
-
-    void saveCameraParams(
-        const string& filename, Size imageSize, Size boardSize,
-        float squareSize, float aspectRatio, int flags,
-        const Mat& cameraMatrix, const Mat& distCoeffs,
-        const vector<Mat>& rvecs, const vector<Mat>& tvecs,
-        const vector<float>& reprojErrs,
-        const vector<vector<Point2f> >& imagePoints,
-        double totalAvgErr );
-
-    bool readStringList(
-        const string& filename, vector<string>& l );
-
-    bool runAndSave(
-        const string& outputFilename,
-        const vector<vector<Point2f> >& imagePoints,
-        Size imageSize, Size boardSize, float squareSize,
-        float aspectRatio, int flags, Mat& cameraMatrix,
-        Mat& distCoeffs, bool writeExtrinsics, bool writePoints );
-
-    bool getCalibrationCamera(Size* boardSize, vector<Point2f> corners, string getErro);
-
-    bool getHomographyMatrix(Size *board_sz, int* numCornersHor, int* numCornersVer, vector<Point2f> corners, string getErro);
-
-    void setCalibrationCamera();
-
+    void saveRatInfos(Point2d before, Point2d atual, bool find, ofstream& fileTest, int frames, double fps);
 private:
 
     //GUI variables
@@ -161,22 +140,29 @@ private:
 
     int numberFiles;
     double contFiles;
+    int snapshot;
+
+    double executionTime;
 
     //Rattrack variables
     VideoCapture src;
     double fps;
+    int frames;
     int total_frames;
     QTimer *tmrTimer;
 
     Mat src_frame, perspective_frame, original_frame, tela_image;
     Mat track_image, transform_image, p;
-    Mat H2_warp, invH_warp;
-
+    Mat H2_warp;
     Size warpSize;
-    int FHEIGHT, FWIDTH, centerX, centerY, threshold_value, min_area, max_area, coordX, coordY, rtrack;
+    int FHEIGHT, FWIDTH, centerX, centerY, threshold_value, min_area, max_area, rtrack;
     unsigned int cont_track;
-
     vector<Point2f> coordinates;
+    double raio;
+    double pixelRatio;
+
+    ofstream fileTest;
+    Point2d coordBefore, coordAtual;
 
 };
 
