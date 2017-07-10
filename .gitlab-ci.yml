@@ -1,0 +1,17 @@
+variables:
+  FILE: "rattrack"
+
+build:
+  image: adnrv/opencv
+  script:
+    # create build dir
+    - mkdir build
+    - cd build
+    # build the project
+    - qmake ../QT
+    - make
+  artifacts:
+    paths:
+      - ./build/$FILE
+  tags:
+    - docker
