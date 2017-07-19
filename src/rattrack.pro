@@ -25,10 +25,16 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    tracker.cpp \
+    video.cpp \
+    calibration.cpp
 
 HEADERS  += \
-    mainwindow.h
+    mainwindow.h \
+    tracker.h \
+    video.h \
+    calibration.h
 
 FORMS    += mainwindow.ui
 
