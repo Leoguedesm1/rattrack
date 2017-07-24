@@ -63,7 +63,7 @@ Mat Calibration::analyzisVideo() {
         //Verifying if cannot make video calibration with this video
         if(image.empty()) {
             this->error = true;
-            return;
+            return gray_image;
         }
 
         cvtColor(image, gray_image, CV_RGB2GRAY);

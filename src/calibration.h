@@ -22,6 +22,8 @@ const string INFO_FILE_NAME = "/info.yml";
 const string CALIB_FILE_NAME = "/calibration.yml";
 const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
 
+const double INF = std::numeric_limits<double>::infinity();
+
 class Calibration {
 public:
     Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure);
@@ -32,6 +34,7 @@ private slots:
 
 
     void setCaptureVideo();
+    VideoCapture getCaptureVideo();
 
     Mat analyzisVideo();
     void writeImageInfos();

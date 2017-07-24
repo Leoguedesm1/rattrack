@@ -3,7 +3,7 @@
 
 #include <QTimer>
 #include <QObject>
-#include <fstream>
+#include <QDir>
 
 //Bibliotecas C
 #include <stdio.h>
@@ -13,6 +13,7 @@
 #include <string.h>
 #include <time.h>
 #include <cctype>
+#include <fstream>
 
 //Bibliotecas OPENCV
 #include <highgui.h>
@@ -24,39 +25,44 @@
 #include "opencv2/imgcodecs.hpp"
 #include <opencv2/opencv.hpp>
 
-#include "mainwindow.h"
+class MainWindow;
 #include "video.h"
+#include "detectorinterface.h"
 
 using namespace std;
 using namespace cv;
-
-//Values used in threshold
-#define WHITE 255
-#define BLACK 0
 
 //const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
 const string TESTES_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Testes";
 const string STATISTICS_FILE_NAME = "/statistics.csv";
 
-class Tracker {
+class Tracker : public QObject {
+
+    Q_OBJECT
+
 public:
-    Tracker();
-    Tracker(QString animal, QString teste, Video *captureVideo);
+
+    Tracker(QObject* parent = 0);
+    Tracker(QObject* parent = 0, QString animal = "", QString teste = "", Video *captureVideo = 0);
     void resetCaptureVideo();
+    void pauseVideo();
+    void saveSnapshot();
+    Video* getCaptureVideo();
+    void executeTracker();
+    QTimer* getTimer();
+    Mat getPerspectiveFrame();
+    Point2d getCenter();
+    double getRadius();
+    MainWindow* getGUI();
+
 private slots:
 
-    void setAnimal(QString animal);
-    void setTeste(QString teste);
-    void setCaptureVideo(Video* captureVideo);
-
-    void pauseVideo();
-    void executeTracker();
     void readHomographyFile();
     void createTestDirectory();
+    void createSnapshotDirectory();
     void startWriteStatistics();
     void processVideo();
-    void getPerspectiveFrame();
-    Mat getThreshold();
+    void applyingHomography();
     void getTrack(Mat imageThreshold);
     void addCordinates(Point2d coord);
     Mat drawPath();
@@ -66,12 +72,15 @@ private slots:
 
 private:
 
+    detectorInterface* detector;
     MainWindow* mw;
     QTimer* tmrTimer;
 
     QString animal, teste;
 
     Video* captureVideo;
+
+    int snapshot;
 
     int countTracking;
     Mat imageTracking;
@@ -83,7 +92,6 @@ private:
     double pixelRatio;
     double radius;
 
-    Mat imageScreen;
     Mat srcFrame, perspectiveFrame;
 
     Point2d coordBBfore, coordBefore, coordCurrent;

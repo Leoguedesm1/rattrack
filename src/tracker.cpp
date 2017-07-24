@@ -1,7 +1,12 @@
 #include "tracker.h"
+#include "mainwindow.h"
+#include "threshold.h"
 
-Tracker::Tracker(QString animal, QString teste, Video* captureVideo) {
+Tracker::Tracker(QObject *parent) : QObject(parent) { }
+
+Tracker::Tracker(QObject *parent, QString animal, QString teste, Video* captureVideo) : QObject(parent){
     this->mw = MainWindow::getInstance();
+
     this->tmrTimer = new QTimer();
 
     this->animal = animal;
@@ -10,29 +15,30 @@ Tracker::Tracker(QString animal, QString teste, Video* captureVideo) {
     this->captureVideo = captureVideo;
 
     this->countTracking = 0;
-    this->imageTracking = Mat(this->captureVideo->getHeight(), this->captureVideo->getWidth(), CV_32S, Scalar(0));
+    this->imageTracking = Mat(captureVideo->getHeight(), captureVideo->getWidth(), CV_32S);
 
-    imageTransform = Mat::zeros(this->captureVideo->getHeight(), this->captureVideo->getWidth(), CV_8U );
-    this->warpSize = Size(this->captureVideo->getHeight(), this->captureVideo->getWidth());
-
-    imageScreen = Mat(this->captureVideo->getHeight(), (this->captureVideo->getWidth())*2, CV_8UC3, Scalar(0));
+    this->imageTransform = Mat::zeros(captureVideo->getHeight(), captureVideo->getWidth(), CV_8U );
+    this->warpSize = Size(captureVideo->getWidth(), captureVideo->getHeight());
 
     coordBBfore = coordBefore = coordCurrent = Point2d(0,0);
+
+    this->detector = new Threshold();
 }
 
-Tracker::Tracker() {
-    this->mw = MainWindow::getInstance();
-    this->tmrTimer = new QTimer();
+Mat Tracker::getPerspectiveFrame() {
+    return this->perspectiveFrame;
+}
 
-    this->countTracking = 0;
-    this->imageTracking = Mat(this->captureVideo->getHeight(), this->captureVideo->getWidth(), CV_32S, Scalar(0));
+Point2d Tracker::getCenter() {
+    return this->center;
+}
 
-    imageTransform = Mat::zeros(this->captureVideo->getHeight(), this->captureVideo->getWidth(), CV_8U );
-    this->warpSize = Size(this->captureVideo->getHeight(), this->captureVideo->getWidth());
+double Tracker::getRadius() {
+    return this->radius;
+}
 
-    imageScreen = Mat(this->captureVideo->getHeight(), (this->captureVideo->getWidth())*2, CV_8UC3, Scalar(0));
-
-    coordBBfore = coordBefore = coordCurrent = Point2d(0,0);
+MainWindow* Tracker::getGUI() {
+    return this->mw;
 }
 
 void Tracker::resetCaptureVideo() {
@@ -57,6 +63,32 @@ void Tracker::pauseVideo() {
         //Setting GUI
         this->mw->setButtonPlay(false);
     }
+
+
+}
+
+void Tracker::saveSnapshot() {
+
+    //Creating directories
+    this->createTestDirectory();
+    this->createSnapshotDirectory();
+
+    //Creating image name
+    stringstream filename;
+    filename << TESTES_DIR_NAME + animal.toAscii().data() + "/Snapshots" << "/snapshot" << this->snapshot++ << "_teste_" << this->teste.toAscii().data() << ".bmp";
+    string save = filename.str();
+
+    //Saving image
+    if(this->mw->getScreen()) imwrite(save, this->srcFrame);
+    else imwrite(save, this->perspectiveFrame);
+}
+
+Video* Tracker::getCaptureVideo() {
+    return this->captureVideo;
+}
+
+QTimer* Tracker::getTimer() {
+    return this->tmrTimer;
 }
 
 void Tracker::executeTracker() {
@@ -71,9 +103,8 @@ void Tracker::executeTracker() {
     readHomographyFile();
 
     //Starting tracking process
-    QObject::connect(this->tmrTimer, SIGNAL(timeout()), this->mw, SLOT(processVideo()));
     this->tmrTimer->start(this->captureVideo->getFPS());
-
+    
     waitKey(0); // key press to close window
 }
 
@@ -102,6 +133,7 @@ void Tracker::readHomographyFile() {
 
     //Closing file after read
     fs.release();
+
 }
 
 void Tracker::createTestDirectory() {
@@ -117,6 +149,12 @@ void Tracker::createTestDirectory() {
         QDir().mkdir(dir1.absolutePath());
 }
 
+void Tracker::createSnapshotDirectory() {
+    QDir dir2(QString::fromStdString(TESTES_DIR_NAME) + "/" + this->animal + "/Snapshots");
+    if(!dir2.exists())
+        QDir().mkdir(dir2.absolutePath());
+}
+
 void Tracker::startWriteStatistics() {
 
     //Getting path name
@@ -127,6 +165,8 @@ void Tracker::startWriteStatistics() {
 
     //Writing first line
     this->statisticsFile << "frame, tempo, metros, velocidade, aceleracao" << endl;
+
+
 }
 
 void Tracker::processVideo() {
@@ -137,18 +177,16 @@ void Tracker::processVideo() {
     if((this->srcFrame).empty()) {
         this->tmrTimer->stop();
         this->statisticsFile.close();
-
-        //"MAKE A FUNCTION"
         this->endVideo();
 
     //If not so analysis the video
     }else{
 
         //Getting the correct image applying homography
-        getPerspectiveFrame();
+        applyingHomography();
 
         //Transforming image to detect the rat
-        Mat imageThreshold = getThreshold();
+        Mat imageThreshold = detector->detectRat(this->perspectiveFrame, this->center, this->radius, this->mw->getValueThreshold());
 
         //Making imageTrack
         getTrack(imageThreshold);
@@ -158,7 +196,7 @@ void Tracker::processVideo() {
     }
 }
 
-void Tracker::getPerspectiveFrame() {
+void Tracker::applyingHomography() {
 
     //Getting srcFrame in gray scayle
     Mat srcGray;
@@ -173,37 +211,20 @@ void Tracker::getPerspectiveFrame() {
     //Copying transformImage
     this->perspectiveFrame = Mat::zeros(this->srcFrame.rows, this->srcFrame.cols, CV_8U);
     this->imageTransform.copyTo(this->perspectiveFrame);
-}
 
-Mat Tracker::getThreshold() {
-    Mat imageThreshold(this->perspectiveFrame.rows, this->perspectiveFrame.cols, CV_8U, Scalar(0));
-
-    //Threshold
-    for(int i = 0; i < this->perspectiveFrame.rows; i++) {
-        for(int j = 0; j < this->perspectiveFrame.cols; j++) {
-            if(((j-this->center.x)*(j-this->center.x)) + ((i-this->center.y)*(i-this->center.y)) <= this->radius*this->radius) {
-                if (this->perspectiveFrame.at<uchar>(i, j) < this->mw->getValueThreshold())
-                    imageThreshold.at<uchar>(i, j) = BLACK;
-                else
-                    imageThreshold.at<uchar>(i, j) = WHITE;
-            }else
-                imageThreshold.at<uchar>(i, j) = BLACK;
-        }
-    }
-
-    medianBlur(imageThreshold, imageThreshold, 5);
-    return imageThreshold;
 }
 
 void Tracker::addCordinates(Point2d coord) {
     this->coordinates.push_back(coord);
+
 }
 
 void Tracker::getTrack(Mat imageThreshold) {
 
     unsigned int i;
+
     //Getting the countours of image, countours = rat
-    cvtColor(perspectiveFrame, perspectiveFrame, CV_GRAY2RGB);
+    cvtColor(this->perspectiveFrame, this->perspectiveFrame, CV_GRAY2RGB);
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
     findContours(imageThreshold, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -232,7 +253,8 @@ void Tracker::getTrack(Mat imageThreshold) {
 
         //Setting Status of find rat
         stringstream status1;
-        status1 << "Rato nao encontrado! Ultimas coordenadas: (" << this->coordCurrent.x << ", " << this->coordCurrent.y << ").";
+        status1 << "Rato nao encontrado! Ultimas coordenadas: (" << this->coordCurrent.x << ", " <<
+                   this->coordCurrent.y << ").";
         string status = status1.str();
         this->mw->setStatus(status);
 
@@ -290,14 +312,9 @@ void Tracker::getTrack(Mat imageThreshold) {
         //Getting original cam image applying inverse homography matrix
         warpPerspective(this->perspectiveFrame, this->srcFrame, this->homographyWarp.inv(), this->srcFrame.size());
 
-        //Criando imagem da tela
-        //original_frame.copyTo(tela_image(Rect(0, 0, original_frame.cols, original_frame.rows)));
-        //perspective_frame.copyTo(tela_image(Rect(original_frame.cols, 0, perspective_frame.cols, perspective_frame.rows)));
-
         //Showing image in screen
         if(this->mw->getScreen()) this->mw->showImage(this->srcFrame);
         else this->mw->showImage(this->perspectiveFrame);
-
     }
 }
 
@@ -322,6 +339,7 @@ Mat Tracker::drawPath() {
             }
         }
     }
+
     return path;
 }
 
@@ -382,6 +400,8 @@ void Tracker::calcAndSaveStatistics(bool find) {
             this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", " << metersCurrent << ", " << velCurrent << ", " << acel << endl;
         }
     }
+
+
 }
 
 void Tracker::endVideo() {
@@ -428,6 +448,9 @@ void Tracker::endVideo() {
         //Setting status
         this->mw->setStatus("Aprendizado salvo com sucesso!");
     }
+
+    //Ending GUI
+    this->mw->closeTest();
 }
 
 Mat Tracker::getImageIA() {

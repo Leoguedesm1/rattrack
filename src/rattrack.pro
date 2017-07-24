@@ -34,7 +34,9 @@ HEADERS  += \
     mainwindow.h \
     tracker.h \
     video.h \
-    calibration.h
+    calibration.h \
+    detectorinterface.h \
+    threshold.h
 
 FORMS    += mainwindow.ui
 
