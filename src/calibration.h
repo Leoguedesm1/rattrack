@@ -13,6 +13,9 @@
 #include <QString>
 #include <QDir>
 #include<limits>
+#include "outxml.h"
+
+class CalibrationGUI;
 
 using namespace cv;
 using namespace std;
@@ -21,30 +24,32 @@ const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().con
 const string INFO_FILE_NAME = "/info.yml";
 const string CALIB_FILE_NAME = "/calibration.yml";
 const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
-
 const double INF = std::numeric_limits<double>::infinity();
+const int L = 100;
 
 class Calibration {
+
 public:
     Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure);
     void executeCalibration();
-    bool getError();
+    void calcRadius();
+    void writeHomographyInfos();
 
 private slots:
-
 
     void setCaptureVideo();
     VideoCapture getCaptureVideo();
 
     Mat analyzisVideo();
     void writeImageInfos();
-    void getCalibration();
-    void writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs);
+    //void getCalibration();
+    //void writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs);
     void getHomography(Mat imageTest);
-    void writeHomographyInfos(vector<Point2f> srcPoints, vector<Point2f> dstPoints,  Mat homography2,
-                              Point center, int radius, double pixelRatio);
+    Mat detectCircle();
 
 private:
+
+    CalibrationGUI* cg;
     int boardW, boardH;
     int nBoards;
     float measure;
@@ -56,8 +61,12 @@ private:
     vector< vector< Point2f> > imagePoints;
     vector< vector< Point3f> > objectPoints;
 
-    bool error;
-
+    double pixelRatio;
+    Mat applyHomography;
+    vector< Point2f> srcPoints;
+    vector< Point2f> dstPoints;
+    Vec3i c;
+    Mat homography2;
 };
 
 #endif // CALIBRATION_H

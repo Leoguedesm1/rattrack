@@ -1,44 +1,47 @@
 #include "calibration.h"
+#include "calibrationgui.h"
 
 Calibration::Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure) {
+
+    this->cg = CalibrationGUI::getInstance();
+    this->cg->setTotalValueLoadBar(n_boards);
+    this->cg->setProgressBar(true);
+
     this->fileName = fileName;
     this->boardW = board_w;
     this->boardH = board_h;
     this->nBoards = n_boards;
     this->measure = measure;
 
-    this->error = false;
-}
-
-bool Calibration::getError() {
-    return this->error;
+    //Getting new corners point with a arbitrary value of pixel size (L variable)
+    this->pixelRatio = this->measure / L;
 }
 
 void Calibration::executeCalibration() {
+
+    //Setting GUI
+    this->cg->showStatus();
+    this->cg->setStatus("Iniciando...");
 
     //Open Video
     this->setCaptureVideo();
 
     //Verifying if the video has opened
-    if(!(this->captureVideo.isOpened())){
-        this->error = true;
-        return;
-    }
+    if(!(this->captureVideo.isOpened()))
+        this->cg->errorOcurred("Impossivel abrir arquivo de video!");
 
     //Analyzing video to get calibration infos (corners, imagepoints and object points)
+    this->cg->setStatus("Analisando imagens...");
     Mat imageTest = analyzisVideo();
-
-    //Verifying analyzis video errors
-    if(this->error == true)
-        return;
 
     //Write a file with calibration images info
     writeImageInfos();
 
-    //Getting Calibration - Optional (we do not use this in program)
-    getCalibration();
+    /*//Getting Calibration - Optional (we do not use this in program)
+    getCalibration();*/
 
     //Getting Homography
+    this->cg->setStatus("Calculando homografia...");
     getHomography(imageTest);
 }
 
@@ -61,10 +64,8 @@ Mat Calibration::analyzisVideo() {
         this->captureVideo >> image;
 
         //Verifying if cannot make video calibration with this video
-        if(image.empty()) {
-            this->error = true;
-            return gray_image;
-        }
+        if(image.empty())
+            this->cg->errorOcurred("Nao foi possivel detectar o numero de imagens necessarias!");
 
         cvtColor(image, gray_image, CV_RGB2GRAY);
 
@@ -113,29 +114,29 @@ Mat Calibration::analyzisVideo() {
         //Saving image
         imwrite(imageName, image);
 
-        /*Showing image - optional
-         * imshow("calib", image);
-         * waitKey(10); */
+        //Modifying ProgressBar
+        this->cg->setValueLoadBar(successes);
+
+        //Showing image
+        this->cg->showImage(image);
     }
 
      return gray_image;
 }
 
 void Calibration::writeImageInfos() {
-
-    FileStorage fs(CALIBRATION_DIR_NAME + INFO_FILE_NAME, FileStorage::WRITE);
-    fs << "image_width" << this->imageSize.width;
-    fs << "image_height" << this->imageSize.height;
-    fs << "board_width" << this->boardW;
-    fs << "board_height" << this->boardH;
-    fs << "n_boards" << this->nBoards;
-    fs << "square_size" << this->measure;
-
-    fs.release();
-
+    outXML* writer = new outXML();
+    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + INFO_FILE_NAME);
+    writer->writeInFile("image_width", this->imageSize.width, &fs);
+    writer->writeInFile("image_height", this->imageSize.height, &fs);
+    writer->writeInFile("board_width", this->boardW, &fs);
+    writer->writeInFile("board_height", this->boardH, &fs);
+    writer->writeInFile("n_boards", this->nBoards, &fs);
+    writer->writeInFile("square_size", this->measure, &fs);
+    writer->closeFile(&fs);
 }
 
-void Calibration::getCalibration() {
+/*void Calibration::getCalibration() {
 
     vector< Mat> rvecs, tvecs;
     Mat intrinsic_Matrix(3, 3, CV_64F);
@@ -148,22 +149,19 @@ void Calibration::getCalibration() {
 }
 
 void Calibration::writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs) {
-    FileStorage fs(CALIBRATION_DIR_NAME + CALIB_FILE_NAME, FileStorage::WRITE );
-
-    fs << "intrinsic_matrix" << intrinsic_Matrix;
-    fs << "distortion_coeffs" << distortion_coeffs;
-    fs << "rotation_vector" << rvecs;
-    fs << "translation_vector" << tvecs;
-    fs << "object_points" << this->objectPoints;
-    fs << "image_points" << this->imagePoints;
-
-    fs.release();
-}
+    outXML* writer = new outXML();
+    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + CALIB_FILE_NAME);
+    writer->writeInFile("intrinsic_matrix", intrinsic_Matrix, &fs);
+    writer->writeInFile("distortion_coeffs", distortion_coeffs, &fs);
+    writer->writeInFile("rotation_vector", rvecs, &fs);
+    writer->writeInFile("translation_vector", tvecs, &fs);
+    writer->writeInFile("object_points", this->objectPoints, &fs);
+    writer->writeInFile("image_points", this->imagePoints, &fs);
+    writer->closeFile(&fs);
+}*/
 
 void Calibration::getHomography(Mat imageTest) {
 
-    vector< Point2f> srcPoints;
-    vector< Point2f> dstPoints;
     Point2f point1, point2, point3, point4;
 
     point1.x = 0;
@@ -202,10 +200,6 @@ void Calibration::getHomography(Mat imageTest) {
     srcPoints.push_back(point3);
     srcPoints.push_back(point4);
 
-    //Getting new corners point with a arbitrary value of pixel size (L variable)
-    int L = 100;
-    double pixelRatio = this->measure / L;
-
     dstPoints.push_back(Point2f(299, 299));
     dstPoints.push_back(Point2f(299+L, 299));
     dstPoints.push_back(Point2f(299+L, 299-L));
@@ -241,38 +235,61 @@ void Calibration::getHomography(Mat imageTest) {
     }
 
     //Getting new and correct homography
-    Mat homography2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
+    this->homography2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
 
-    Mat applyHomography;
-    warpPerspective(imageTest, applyHomography, homography2, Size(imageSize.width, imageSize.height));
-
-    vector<Vec3f> circles;
-    HoughCircles(applyHomography, circles, HOUGH_GRADIENT, 1, 10, 100, 30, 110, 133);
-
-    Vec3i c = circles[0];
-
-    /*Showing circle found
-    imshow("calib", applyHomography);
-    waitKey();*/
+    warpPerspective(imageTest, this->applyHomography, this->homography2, Size(imageSize.width, imageSize.height));
 
     //Save test image
-    imwrite(CALIBRATION_DIR_NAME + "/homographyApply.bmp", applyHomography);
+    imwrite(CALIBRATION_DIR_NAME + "/homographyApply.bmp", this->applyHomography);
 
-    //SAVING HOMOGRAPHY
-    writeHomographyInfos(srcPoints, dstPoints, homography2, Point(c[0], c[1]), c[2], pixelRatio);
+    //Setting GUI
+    this->cg->setTool(true);
+
+    //Default Settings
+    this->cg->setRadiusMaxValue(133);
+    this->cg->setRadiusMinValue(110);
 
 }
 
-void Calibration::writeHomographyInfos(vector<Point2f> srcPoints, vector<Point2f> dstPoints, Mat homography2, Point center, int radius, double pixelRatio) {
+void Calibration::calcRadius() {
 
-    FileStorage fs(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME, FileStorage::WRITE );
+    //Finding center and radius
+    Mat drawCircle;
+    applyHomography.copyTo(drawCircle);
+    vector<Vec3f> circles;
+    HoughCircles(drawCircle, circles, HOUGH_GRADIENT, 1, 10, 100, 30, this->cg->getRadiusMinValue(),
+                 this->cg->getRadiusMaxValue());
 
-    fs << "src_points" << srcPoints;
-    fs << "dst_points" << dstPoints;
-    fs << "homography_matrix" << homography2;
-    fs << "center_circle" << center;
-    fs << "radius" << radius;
-    fs << "pixel_ratio" << pixelRatio;
+    //Draw circle
+    if(circles.size() > 0) {
 
-    fs.release();
+        //Setting Status
+        this->cg->setStatus("Calculando circulo...");
+        this->cg->setBtOKRadius(true);
+
+        cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
+        this->c = circles[0];
+        circle(drawCircle, Point(c[0], c[1]), c[2], Scalar(255, 0, 0), 1, 8, 0);
+        circle(drawCircle, Point(c[0], c[1]), 1, Scalar(255, 0, 0), 1, 8, 0);
+
+        //Showing circle found
+        this->cg->showImage(drawCircle);
+    }else{
+        this->cg->setStatus("Circulo nao encontrado!");
+        drawCircle = Mat::zeros(704, 480, CV_8UC3);
+        this->cg->showImage(drawCircle);
+        this->cg->setBtOKRadius(false);
+    }
+}
+
+void Calibration::writeHomographyInfos() {
+    outXML* writer = new outXML();
+    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
+    writer->writeInFile("src_points", srcPoints, &fs);
+    writer->writeInFile("dst_points", dstPoints, &fs);
+    writer->writeInFile("homography_matrix", homography2, &fs);
+    writer->writeInFile("center_circle", Point(c[0], c[1]), &fs);
+    writer->writeInFile("radius", c[2], &fs);
+    writer->writeInFile("pixel_ratio", this->pixelRatio, &fs);
+    writer->closeFile(&fs);
 }
