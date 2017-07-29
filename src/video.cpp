@@ -33,6 +33,14 @@ int Video::getTotalFrames() {
     return this->totalFrames;
 }
 
+void Video::setCountFrames(int countFrames) {
+    this->countFrames = countFrames;
+}
+
+int Video::getCountFrames() {
+    return this->countFrames;
+}
+
 void Video::setHeight(int height) {
     this->height = height;
 }

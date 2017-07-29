@@ -18,6 +18,8 @@ public:
     double getFPS();
     void setTotalFrames(int totalFrames);
     int getTotalFrames();
+    void setCountFrames(int countFrames);
+    int getCountFrames();
     void setHeight(int height);
     int getHeight();
     void setWidth(int width);
