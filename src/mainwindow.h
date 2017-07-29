@@ -9,11 +9,11 @@
 #include <QFileDialog>
 #include <QMainWindow>
 #include "video.h"
-#include "calibration.h"
 #include <vector>
 #include <algorithm>
 
 class Tracker;
+class CalibrationGUI;
 
 using namespace std;
 using namespace cv;
@@ -99,7 +99,7 @@ private:
     int valueThreshold, minValueArea, maxValueArea, thicknessTrack;
     bool screen;
 
-    Calibration* camCalibration;
+    CalibrationGUI* camCalibration;
     Tracker* tracker;
 };
 

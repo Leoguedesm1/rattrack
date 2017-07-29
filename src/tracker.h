@@ -13,7 +13,6 @@
 #include <string.h>
 #include <time.h>
 #include <cctype>
-#include <fstream>
 
 //Bibliotecas OPENCV
 #include <highgui.h>
@@ -28,13 +27,17 @@
 class MainWindow;
 #include "video.h"
 #include "detectorinterface.h"
+#include "inxml.h"
+#include "outcsv.h"
 
 using namespace std;
 using namespace cv;
 
-//const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
+const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Calibration";
+const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
 const string TESTES_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Testes";
 const string STATISTICS_FILE_NAME = "/statistics.csv";
+const string LEARNING_FILE_NAME = "/learning.csv";
 
 class Tracker : public QObject {
 
@@ -69,6 +72,7 @@ private slots:
     void calcAndSaveStatistics(bool find);
     void endVideo();
     Mat getImageIA();
+    void calcLearningIndex();
 
 private:
 
@@ -99,6 +103,8 @@ private:
     ofstream statisticsFile;
 
     vector<Point2d> coordinates;
+
+    outCSV* writerCSV;
 };
 
 #endif // TRACKER_H

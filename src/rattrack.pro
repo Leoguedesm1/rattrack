@@ -28,7 +28,8 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     tracker.cpp \
     video.cpp \
-    calibration.cpp
+    calibration.cpp \
+    calibrationgui.cpp
 
 HEADERS  += \
     mainwindow.h \
@@ -36,9 +37,14 @@ HEADERS  += \
     video.h \
     calibration.h \
     detectorinterface.h \
-    threshold.h
+    threshold.h \
+    outxml.h \
+    calibrationgui.h \
+    inxml.h \
+    outcsv.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    calibrationgui.ui
 
 INCLUDEPATH += /usr/local/include/opencv
 LIBS += `pkg-config opencv --libs`

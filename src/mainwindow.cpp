@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "tracker.h"
 #include "ui_mainwindow.h"
+#include "calibrationgui.h"
 
 MainWindow* MainWindow::instance = 0;
 
@@ -417,57 +418,9 @@ void MainWindow::on_btPlay_clicked() {
 }
 
 void MainWindow::on_btCamConfig_clicked() {
-
-    //Default Message
-    QMessageBox msgBox;
-    msgBox.setText("Bem vindo ao assistente de calibracao!");
-    msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
-    msgBox.setDefaultButton(QMessageBox::Ok);
-    int op = msgBox.exec();
-
-    //Directory
-    QDir dir(QString::fromStdString((string) CALIBRATION_DIR_NAME));
-
-    switch(op) {
-
-    case QMessageBox::Ok: {
-
-        //Creating calibration directory
-        if(!dir.exists())
-            QDir().mkdir(dir.absolutePath());
-
-        //Getting image infos for calibration
-        int board_w = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas horizontais: "));
-        int board_h = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de esquinas verticais: "));
-        int n_boards = QInputDialog::getInt(this, tr("Calibracao"), tr("Numero de quadrados: "));
-        float measure = QInputDialog::getInt(this, tr("Calibracao"), tr("Medida dos quadrados: "));
-
-        QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
-
-        //Giving information to users
-        QMessageBox::information(this, tr("Calibracao"), tr("Para cada formato de tabuleiro sera necessario capturar uma "
-                                                            "certa quantidade de imagens!\nPara captura pressione a tecla "
-                                                            "ENTER.\n""Para sair pressione a tecla ESC."));
-
-        //Creating a new calibration object
-        camCalibration = new Calibration(fileName, board_w, board_h, n_boards, measure);
-
-        //Execute Calibration
-        camCalibration->executeCalibration();
-
-        //Verifying errors
-        if(camCalibration->getError())
-            QMessageBox::critical(this, tr("Calibracao"), tr("Houve algum erro inesperado!"));
-        else
-            QMessageBox::information(this, tr("Calibracao"), tr("Calibracao finalizada com sucesso!"));
-    }
-        break;
-
-    case QMessageBox::Cancel: {
-    }
-        break;
-    }
-
+    this->hide();
+    camCalibration = new CalibrationGUI();
+    camCalibration->show();
 }
 
 void MainWindow::on_btSair_clicked() {

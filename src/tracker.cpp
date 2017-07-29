@@ -23,6 +23,8 @@ Tracker::Tracker(QObject *parent, QString animal, QString teste, Video* captureV
     coordBBfore = coordBefore = coordCurrent = Point2d(0,0);
 
     this->detector = new Threshold();
+
+    this->writerCSV = new outCSV();
 }
 
 Mat Tracker::getPerspectiveFrame() {
@@ -109,9 +111,9 @@ void Tracker::executeTracker() {
 }
 
 void Tracker::readHomographyFile() {
-
     //Reading Homography File
-    FileStorage fs(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME, FileStorage::READ);
+    inXML* reader = new inXML();
+    FileStorage fs = reader->readFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
 
     //Verifying if file is open
     if(!(fs.isOpened())) {
@@ -119,11 +121,14 @@ void Tracker::readHomographyFile() {
         return;
     }
 
-    //Saving homography infos in Tracker object
-    fs["homography_matrix"] >> this->homographyWarp;
-    fs["center_circle"] >> this->center;
-    fs["radius"] >> this->radius;
-    fs["pixel_ratio"] >> this->pixelRatio;
+    string name = "homography_matrix";
+    reader->getInFile(name.c_str(), &fs, &homographyWarp);
+    name = "center_circle";
+    reader->getInFile(name.c_str(), &fs, &center);
+    name = "radius";
+    reader->getInFile(name.c_str(), &fs, &radius);
+    name = "pixel_ratio";
+    reader->getInFile(name.c_str(), &fs, &pixelRatio);
 
     //Verifying if homography matrix is empty
     if(this->homographyWarp.empty()) {
@@ -132,8 +137,7 @@ void Tracker::readHomographyFile() {
     }
 
     //Closing file after read
-    fs.release();
-
+    reader->closeFile(&fs);
 }
 
 void Tracker::createTestDirectory() {
@@ -161,12 +165,14 @@ void Tracker::startWriteStatistics() {
     const string name1= TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + STATISTICS_FILE_NAME;
 
     //Open file to start write
-    this->statisticsFile.open(name1.c_str());
+    this->writerCSV->startWrite(name1.c_str(), statisticsFile);
 
     //Writing first line
-    this->statisticsFile << "frame, tempo, metros, velocidade, aceleracao" << endl;
-
-
+    this->writerCSV->writeInFile("frame", statisticsFile); this->writerCSV->addColumn(statisticsFile);
+    this->writerCSV->writeInFile("tempo", statisticsFile); this->writerCSV->addColumn(statisticsFile);
+    this->writerCSV->writeInFile("metros", statisticsFile); this->writerCSV->addColumn(statisticsFile);
+    this->writerCSV->writeInFile("velocidade", statisticsFile); this->writerCSV->addColumn(statisticsFile);
+    this->writerCSV->writeInFile("aceleracao", statisticsFile); this->writerCSV->endLine(statisticsFile);
 }
 
 void Tracker::processVideo() {
@@ -239,7 +245,7 @@ void Tracker::getTrack(Mat imageThreshold) {
     }
 
     //Counting frames
-    this->captureVideo->setTotalFrames(this->captureVideo->getTotalFrames()+1);
+    this->captureVideo->setCountFrames(this->captureVideo->getCountFrames()+1);
 
     //If do not detected the rat
     if (i >= contours.size() || area == 0) {
@@ -347,34 +353,39 @@ void Tracker::calcAndSaveStatistics(bool find) {
 
     //Calculing time per frame
     double time = 1.0/this->captureVideo->getFPS();
+    double vel, meters, acel;
 
     //If rat do not found then save default statistics
-    if(!find)
-        this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", , , " << endl;
+    if(!find) {
+        //this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", , , " << endl;
+        this->writerCSV->writeInFile(this->captureVideo->getCountFrames(), statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->writeInFile(time, statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->endLine(statisticsFile);
 
     //If rat has found then calculate meters, speed and aceleration
-    else {
+    }else {
 
         //Saving initial statistics
-        if(this->captureVideo->getTotalFrames() == 1)
-            this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", 0, 0, 0" << endl;
+        if(this->captureVideo->getCountFrames() == 1)
+            meters = vel = acel = 0;
 
         //Saving first statistics
-        else if(this->captureVideo->getTotalFrames() == 2) {
+        else if(this->captureVideo->getCountFrames() == 2) {
 
             //Metters
             double xDiff = this->coordBefore.x - this->coordCurrent.x;
             double yDiff = this->coordBefore.y - this->coordCurrent.y;
-            double meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*this->pixelRatio;
+            meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*this->pixelRatio;
 
             //Speed
-            double vel = meters/time;
+            vel = meters/time;
 
             //Aceleration
-            double acel = (vel-0) / time;
-
-            //Write in statistcs file
-            this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", " << meters << ", " << vel << ", " << acel << endl;
+            acel = vel / time;
 
         //Other statistics
         }else{
@@ -387,21 +398,28 @@ void Tracker::calcAndSaveStatistics(bool find) {
             //Metters Current
             double xDiffC = this->coordBefore.x - this->coordCurrent.x;
             double yDiffC = this->coordBefore.y - this->coordCurrent.y;
-            double metersCurrent = (sqrt((xDiffC*xDiffC) + (yDiffC*yDiffC)))*this->pixelRatio;
+            meters = (sqrt((xDiffC*xDiffC) + (yDiffC*yDiffC)))*this->pixelRatio;
 
             //Speed
-            double velCurrent = metersCurrent/time;
+            vel = meters/time;
             double velBefore = metersBefore/time;
 
             //Aceleration
-            double acel = (velCurrent-velBefore) / time;
-
-            //Write in statistcs file
-            this->statisticsFile << this->captureVideo->getTotalFrames() << ", " << time << ", " << metersCurrent << ", " << velCurrent << ", " << acel << endl;
+            acel = (vel-velBefore) / time;
         }
+
+        //Write in statistcs file
+        this->writerCSV->writeInFile(this->captureVideo->getCountFrames(), statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->writeInFile(time, statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->writeInFile(meters, statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->writeInFile(vel, statisticsFile);
+        this->writerCSV->addColumn(statisticsFile);
+        this->writerCSV->writeInFile(acel, statisticsFile);
+        this->writerCSV->endLine(statisticsFile);
     }
-
-
 }
 
 void Tracker::endVideo() {
@@ -449,6 +467,8 @@ void Tracker::endVideo() {
         this->mw->setStatus("Aprendizado salvo com sucesso!");
     }
 
+    this->calcLearningIndex();
+
     //Ending GUI
     this->mw->closeTest();
 }
@@ -467,4 +487,50 @@ Mat Tracker::getImageIA() {
     }
 
     return IA;
+}
+
+void Tracker::calcLearningIndex() {
+
+    //Getting path name
+    const string name1 = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + LEARNING_FILE_NAME;
+
+    //Open file to start write
+    ofstream learningFile;
+    this->writerCSV->startWrite(name1.c_str(), learningFile);
+
+    //Writing first line
+    this->writerCSV->writeInFile("frame", learningFile); this->writerCSV->addColumn(learningFile);
+    this->writerCSV->writeInFile("tempo", learningFile); this->writerCSV->addColumn(learningFile);
+    this->writerCSV->writeInFile("distancia", learningFile); this->writerCSV->addColumn(learningFile);
+    this->writerCSV->endLine(learningFile);
+
+    double time = 1/this->getCaptureVideo()->getFPS();
+    Point2d finalPoint = this->coordinates[this->coordinates.size()-1];
+    double media = 0;
+
+    for(int i = 0; i < (int) this->coordinates.size()-1; i++) {
+
+        Point2d point = this->coordinates[i];
+        double xDiff = finalPoint.x - point.x;
+        double yDiff = finalPoint.y - point.y;
+        double meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*this->pixelRatio;
+        media = media + (meters/30);
+
+        //Writing infos
+        this->writerCSV->writeInFile(i, learningFile); this->writerCSV->addColumn(learningFile);
+        this->writerCSV->writeInFile(time, learningFile); this->writerCSV->addColumn(learningFile);
+        this->writerCSV->writeInFile(meters, learningFile); this->writerCSV->addColumn(learningFile);
+        this->writerCSV->endLine(learningFile);
+
+        //Making media every 1sec
+        if(i != 0 && (i+1)%30 == 0) {
+
+            //Writing info
+            this->writerCSV->writeInFile("media", learningFile); this->writerCSV->addColumn(learningFile);
+            this->writerCSV->writeInFile("1sec", learningFile); this->writerCSV->addColumn(learningFile);
+            this->writerCSV->writeInFile(media, learningFile); this->writerCSV->addColumn(learningFile);
+            this->writerCSV->endLine(learningFile);
+            media = 0;
+        }
+    }
 }
