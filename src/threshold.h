@@ -31,7 +31,6 @@ public:
         medianBlur(imageThreshold, imageThreshold, 5);
         return imageThreshold;
     }
-
 };
 
 #endif // THRESHOLD_H

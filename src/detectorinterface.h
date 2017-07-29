@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <cv.h>
-class Tracker;
 
 using namespace std;
 using namespace cv;
