@@ -58,7 +58,7 @@ void Tracker::pauseVideo() {
         //Setting GUI
         this->mw->setButtonPlay(true);
 
-    //If video has stop then play
+        //If video has stop then play
     }else{
         this->tmrTimer->start(captureVideo->getFPS());
 
@@ -185,7 +185,7 @@ void Tracker::processVideo() {
         this->statisticsFile.close();
         this->endVideo();
 
-    //If not so analysis the video
+        //If not so analysis the video
     }else{
 
         //Getting the correct image applying homography
@@ -277,7 +277,7 @@ void Tracker::getTrack(Mat imageThreshold) {
         else this->mw->showImage(this->perspectiveFrame);
         return;
 
-    //If detected rat
+        //If detected rat
     }else{
 
         //Get the moments
@@ -366,7 +366,7 @@ void Tracker::calcAndSaveStatistics(bool find) {
         this->writerCSV->addColumn(statisticsFile);
         this->writerCSV->endLine(statisticsFile);
 
-    //If rat has found then calculate meters, speed and aceleration
+        //If rat has found then calculate meters, speed and aceleration
     }else {
 
         //Saving initial statistics
@@ -387,7 +387,7 @@ void Tracker::calcAndSaveStatistics(bool find) {
             //Aceleration
             acel = vel / time;
 
-        //Other statistics
+            //Other statistics
         }else{
 
             //Metters Before
@@ -429,64 +429,26 @@ void Tracker::endVideo() {
 
     //Saving Path image
     string save;
-    if(this->mw->getCheckedPathButton()) {
 
-        //Setting status
-        this->mw->setStatus("Salvando Caminho...");
+    //Setting status
+    this->mw->setStatus("Salvando Caminho...");
 
-        //Setting image name
-        stringstream filename;
-        filename << TESTES_DIR_NAME + "/" + this->animal.toAscii().data() << "/caminho_teste_" << teste.toAscii().data() << ".bmp";
-        save = filename.str();
+    //Setting image name
+    stringstream filename;
+    filename << TESTES_DIR_NAME + "/" + this->animal.toAscii().data() << "/caminho_teste_" << teste.toAscii().data() << ".bmp";
+    save = filename.str();
 
-        //Saving image
-        imwrite(save, imageTracking);
+    //Saving image
+    imwrite(save, imageTracking);
 
-        //Setting status
-        this->mw->setStatus("Salvo!");
-    }
+    //Setting status
+    this->mw->setStatus("Salvo!");
 
-    //Saving IA
-    if(this->mw->getCheckedIAButton()) {
-
-        //Setting status
-        this->mw->setStatus("Salvando Aprendizado...");
-
-        //Getting IA image
-        Mat imageIA = getImageIA();
-
-        //Setting image name
-        stringstream filename;
-        filename << TESTES_DIR_NAME + "/" + this->animal.toAscii().data() << "/aprendizado_teste_" << teste.toAscii().data() << ".bmp";
-        save = filename.str();
-
-        //Saving image
-        imwrite(save, imageIA);
-
-        //Setting status
-        this->mw->setStatus("Aprendizado salvo com sucesso!");
-    }
-
+    //Calculing learning index
     this->calcLearningIndex();
 
     //Ending GUI
     this->mw->closeTest();
-}
-
-Mat Tracker::getImageIA() {
-    Mat IA;
-    unsigned int cont = 0;
-    Point2f final(this->coordinates[this->coordinates.size() - 2].x, this->coordinates[this->coordinates.size() - 2].y);
-
-    this->imageTracking.copyTo(IA);
-
-    while(cont <= (unsigned int)this->countTracking) {
-
-        line(IA, this->coordinates[cont], final, Scalar(255,255,255));
-        cont+=20;
-    }
-
-    return IA;
 }
 
 void Tracker::calcLearningIndex() {

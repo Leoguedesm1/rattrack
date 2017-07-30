@@ -27,7 +27,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     //Disabled buttons
     ui->tbTela->setEnabled(false);
-    ui->frameImagens->setEnabled(false);
+    ui->btPlay->setEnabled(false);
+    ui->btReset->setEnabled(false);
+    ui->btSnap->setEnabled(false);
     ui->frameTools->setEnabled(false);
     ui->btIniciar->setEnabled(false);
     ui->label->setEnabled(false);
@@ -239,20 +241,6 @@ void MainWindow::on_tbTrack_valueChanged(int value) {
     this->setThicknessThreshold(value);
 }
 
-bool MainWindow::getCheckedPathButton() {
-    if(ui->cbPath->isChecked())
-        return true;
-    else
-        return false;
-}
-
-bool MainWindow::getCheckedIAButton() {
-    if(ui->cbIA->isChecked())
-        return true;
-    else
-        return false;
-}
-
 void MainWindow::inputNameTeste() {
 
     //Escondendo labels
@@ -298,7 +286,6 @@ void MainWindow::on_btFile_clicked() {
     this->setFileName();
 
     //Realising tools
-    ui->frameImagens->setEnabled(true);
     ui->btIniciar->setEnabled(true);
     ui->label->setEnabled(true);
     ui->label_2->setEnabled(true);
@@ -344,7 +331,6 @@ void MainWindow::on_btDir_clicked() {
     ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
 
     //Releasing tools
-    ui->frameImagens->setEnabled(true);
     ui->btIniciar->setEnabled(true);
     ui->label->setEnabled(true);
     ui->label_2->setEnabled(true);
@@ -383,17 +369,18 @@ void MainWindow::on_btIniciar_clicked() {
         ui->label_5->show();
         ui->lbStatus->show();
         ui->lbStatus->setText("Iniciando teste...");
-        ui->tbTela->setEnabled(true);
         this->createButtonTela();
 
         //Blocking gui configurations
-        ui->frameImagens->setEnabled(false);
         ui->btIniciar->setEnabled(false);
         ui->btCamConfig->setEnabled(false);
 
         //Releasing video tools
         ui->frameTools->setEnabled(true);
         ui->tbTela->setEnabled(true);
+        ui->btPlay->setEnabled(true);
+        ui->btReset->setEnabled(true);
+        ui->btSnap->setEnabled(true);
 
         //Reading video
         this->readVideo(this->captureVideos[0]);
@@ -439,7 +426,9 @@ void MainWindow::resetInterface() {
 
     //Disabled buttons
     ui->tbTela->setEnabled(false);
-    ui->frameImagens->setEnabled(false);
+    ui->btPlay->setEnabled(false);
+    ui->btReset->setEnabled(false);
+    ui->btSnap->setEnabled(false);
     ui->frameTools->setEnabled(false);
 
     ui->btIniciar->setEnabled(false);
@@ -476,10 +465,6 @@ void MainWindow::closeTest() {
 
         //Preparing GUI for next test
         ui->frameTools->setEnabled(false);
-        ui->cbVelo->setChecked(false);
-        ui->cbAceleracao->setChecked(false);
-        ui->cbPath->setChecked(false);
-        ui->cbIA->setChecked(false);
         ui->btFile->setEnabled(false);
         ui->btIniciar->setEnabled(true);
         ui->label->setEnabled(true);

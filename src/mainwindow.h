@@ -46,9 +46,6 @@ public:
     void setStatus(string status);
     void setButtonPlay(bool status);
 
-    bool getCheckedPathButton();
-    bool getCheckedIAButton();
-
     void closeTest();
 
 private slots:

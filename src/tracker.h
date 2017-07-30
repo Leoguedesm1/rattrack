@@ -71,7 +71,6 @@ private slots:
     Mat drawPath();
     void calcAndSaveStatistics(bool find);
     void endVideo();
-    Mat getImageIA();
     void calcLearningIndex();
 
 private:
