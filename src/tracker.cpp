@@ -1,6 +1,5 @@
 #include "tracker.h"
 #include "mainwindow.h"
-#include "threshold.h"
 
 Tracker::Tracker(QObject *parent) : QObject(parent) { }
 
@@ -111,33 +110,23 @@ void Tracker::executeTracker() {
 }
 
 void Tracker::readHomographyFile() {
-    //Reading Homography File
-    inXML* reader = new inXML();
-    FileStorage fs = reader->readFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
 
-    //Verifying if file is open
-    if(!(fs.isOpened())) {
-        QMessageBox::critical(this->mw, QObject::tr("Erro"), QObject::tr("Para realizacao do teste, eh necessario calibrar a camera!\nTeste cancelado!"));
-        return;
-    }
+    //Reading Homography File
+    this->mw->setReader(new ReaderXml());
+
+    (this->mw->getReader())->readFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
 
     string name = "homography_matrix";
-    reader->getInFile(name.c_str(), &fs, &homographyWarp);
+    (this->mw->getReader())->getInFile(name.c_str(), &homographyWarp);
     name = "center_circle";
-    reader->getInFile(name.c_str(), &fs, &center);
+    (this->mw->getReader())->getInFile(name.c_str(), &center);
     name = "radius";
-    reader->getInFile(name.c_str(), &fs, &radius);
+    (this->mw->getReader())->getInFile(name.c_str(), &radius);
     name = "pixel_ratio";
-    reader->getInFile(name.c_str(), &fs, &pixelRatio);
-
-    //Verifying if homography matrix is empty
-    if(this->homographyWarp.empty()) {
-        QMessageBox::critical(this->mw, QObject::tr("Erro"), QObject::tr("Impossivel encontrar matriz de calibracao!\nTeste cancelado!"));
-        return;
-    }
+    (this->mw->getReader())->getInFile(name.c_str(), &pixelRatio);
 
     //Closing file after read
-    reader->closeFile(&fs);
+    (this->mw->getReader())->closeFile();
 }
 
 void Tracker::createTestDirectory() {

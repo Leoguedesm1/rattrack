@@ -40,8 +40,9 @@ HEADERS  += \
     threshold.h \
     outxml.h \
     calibrationgui.h \
-    inxml.h \
-    outcsv.h
+    outcsv.h \
+    readerinterface.h \
+    readerxml.h
 
 FORMS    += mainwindow.ui \
     calibrationgui.ui

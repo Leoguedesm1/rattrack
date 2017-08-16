@@ -2,7 +2,6 @@
 #define THRESHOLD_H
 
 #include "detectorinterface.h"
-#include "tracker.h"
 
 using namespace std;
 using namespace cv;

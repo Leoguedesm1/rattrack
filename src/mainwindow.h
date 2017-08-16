@@ -5,12 +5,14 @@
 #include <QMessageBox>
 #include <QAction>
 #include <QMenu>
+#include <QSlider>
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QMainWindow>
 #include "video.h"
 #include <vector>
 #include <algorithm>
+#include "readerxml.h"
 
 class Tracker;
 class CalibrationGUI;
@@ -41,6 +43,8 @@ public:
     void setThicknessThreshold(int value);
     bool getScreen();
     void setScreen(bool value);
+    void setReader(ReaderInterface* reader);
+    ReaderInterface* getReader();
 
     void showImage(Mat image);
     void setStatus(string status);
@@ -75,9 +79,12 @@ private slots:
     void inputNameTeste();
 
     void on_btCamConfig_clicked();
-    void on_btSair_clicked();
-
     void on_btSnap_clicked();
+
+    void setAdvancedSettings();
+    void on_btAdvancedSettings_clicked();
+
+    bool existsCalibration();
 
 private:
 
@@ -94,10 +101,11 @@ private:
 
     vector<Video*> captureVideos;
     int valueThreshold, minValueArea, maxValueArea, thicknessTrack;
-    bool screen;
+    bool screen, advancedSettings;
 
     CalibrationGUI* camCalibration;
     Tracker* tracker;
+    ReaderInterface* reader;
 };
 
 #endif // MAINWINDOW_H

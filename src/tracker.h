@@ -26,8 +26,8 @@
 
 class MainWindow;
 #include "video.h"
-#include "detectorinterface.h"
-#include "inxml.h"
+#include "threshold.h"
+#include "readerxml.h"
 #include "outcsv.h"
 
 using namespace std;

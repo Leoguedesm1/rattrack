@@ -20,16 +20,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     testeInput = NULL;
     animalInput = NULL;
+    advancedSettings = true;
+    setAdvancedSettings();
 
     //Full screen and black background
     this->showMaximized();
     ui->lbOriginal->setStyleSheet("background-color: rgb(0, 0, 0);");
 
     //Disabled buttons
-    ui->tbTela->setEnabled(false);
-    ui->btPlay->setEnabled(false);
-    ui->btReset->setEnabled(false);
-    ui->btSnap->setEnabled(false);
     ui->frameTools->setEnabled(false);
     ui->btIniciar->setEnabled(false);
     ui->label->setEnabled(false);
@@ -38,8 +36,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->lbTeste->setEnabled(false);
     ui->label_4->setEnabled(false);
     ui->lbFile->setEnabled(false);
-    ui->label_5->hide();
-    ui->lbStatus->hide();
+
+    if(!existsCalibration()) {
+        ui->btFile->setEnabled(false);
+        ui->btDir->setEnabled(false);
+    }
 
     instance = this;
 
@@ -104,6 +105,16 @@ void MainWindow::readVideo(Video *v) {
     v->setWidth((v->getCaptureVideo()).get(CV_CAP_PROP_FRAME_WIDTH));
 }
 
+void MainWindow::setAdvancedSettings() {
+    if(!advancedSettings) {
+        advancedSettings = true;
+        ui->frameAdvancedTools->show();
+   } else {
+        advancedSettings = false;
+        ui->frameAdvancedTools->hide();
+    }
+}
+
 void MainWindow::setButtonPlay(bool status) {
 
     //status = true then the video is playing so u have to pause
@@ -135,6 +146,14 @@ void MainWindow::showImage(Mat image) {
 
 void MainWindow::setStatus(string status) {
     ui->lbStatus->setText(QString::fromStdString(status));
+}
+
+void MainWindow::setReader(ReaderInterface *reader) {
+    this->reader = reader;
+}
+
+ReaderInterface* MainWindow::getReader() {
+    return this->reader;
 }
 
 int MainWindow::getValueThreshold() {
@@ -256,9 +275,14 @@ void MainWindow::inputNameTeste() {
     testeInput->setPlaceholderText("Digite o numero do teste...");
     testeInput->setFocus();
 
+    QFont font("", 0);
+    QFontMetrics fm(font);
+    animalInput->setFixedSize(fm.width("Digite o nome do animal..."), fm.height());
+    testeInput->setFixedSize(fm.width("Digite o numero do teste..."), fm.height());
+
     //Adicionando ao layout
-    ui->horizontalLayout_3->addWidget(animalInput, 1, 0);
-    ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
+    ui->horizontalLayout_2->addWidget(animalInput, 0, 0);
+    ui->horizontalLayout_3->addWidget(testeInput);
 }
 
 void MainWindow::setFileName() {
@@ -278,7 +302,7 @@ void MainWindow::on_btFile_clicked() {
     ui->btCamConfig->setEnabled(false);
 
     //Getting video
-    QString argv = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
+    QString argv = QFileDialog::getOpenFileName(this, tr("Escolha o video para ser analisado"), QString(), tr("Video Files (*.avi)"));
     Video* cap = new Video(argv);
     this->addVideo(cap);
 
@@ -292,16 +316,7 @@ void MainWindow::on_btFile_clicked() {
     ui->label_4->setEnabled(true);
 
     //Changing labels to input text box
-    ui->lbAnimal->hide();
-    ui->lbTeste->hide();
-    if (!animalInput) animalInput = new QLineEdit;
-    animalInput->setPlaceholderText("Digite o nome do animal...");
-    animalInput->setFocus();
-    if (!testeInput) testeInput = new QLineEdit;
-    testeInput->setPlaceholderText("Digite o numero do teste...");
-    testeInput->setFocus();
-    ui->horizontalLayout_3->addWidget(animalInput, 1, 0);
-    ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
+    this->inputNameTeste();
 
 }
 
@@ -319,16 +334,7 @@ void MainWindow::on_btDir_clicked() {
     this->setFileName();
 
     //Changing label to input text box
-    ui->lbAnimal->hide();
-    ui->lbTeste->hide();
-    if (!animalInput) animalInput = new QLineEdit;
-    animalInput->setPlaceholderText("Digite o nome do animal...");
-    animalInput->setFocus();
-    if (!testeInput) testeInput = new QLineEdit;
-    testeInput->setPlaceholderText("Digite o numero do teste...");
-    testeInput->setFocus();
-    ui->horizontalLayout_3->addWidget(animalInput, 1, 0);
-    ui->horizontalLayout_2->addWidget(testeInput, 1, 0);
+    this->inputNameTeste();
 
     //Releasing tools
     ui->btIniciar->setEnabled(true);
@@ -341,7 +347,10 @@ void MainWindow::on_btDir_clicked() {
 void MainWindow::on_btIniciar_clicked() {
 
     //Conditions to initiate test
-    if(animalInput->text().isEmpty() || testeInput->text().isEmpty())
+    Video* cap = this->captureVideos[0];
+    if(cap->getFileName() == NULL)
+        QMessageBox::critical(this, tr("Erro"), tr("Por favor, selecione o arquivo de video."));
+    else if(animalInput->text().isEmpty() || testeInput->text().isEmpty())
         QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha os campos 'Animal' e 'Teste'."));
     else {
 
@@ -410,10 +419,6 @@ void MainWindow::on_btCamConfig_clicked() {
     camCalibration->show();
 }
 
-void MainWindow::on_btSair_clicked() {
-    exit(1);
-}
-
 void MainWindow::on_btSnap_clicked() {
     this->tracker->saveSnapshot();
 }
@@ -442,8 +447,9 @@ void MainWindow::resetInterface() {
     ui->label_4->setEnabled(false);
     ui->lbFile->setEnabled(false);
 
-    ui->label_5->hide();
-    ui->lbStatus->hide();
+    ui->lbAnimal->setText("");
+    ui->lbFile->setText("");
+    ui->lbTeste->setText("");
 
     ui->btCamConfig->setEnabled(true);
 }
@@ -491,4 +497,13 @@ void MainWindow::closeTest() {
         //User info
         QMessageBox::information(this, tr("Fim de teste!"), tr("A analise acabou!"));
     }
+}
+
+void MainWindow::on_btAdvancedSettings_clicked() {
+    setAdvancedSettings();
+}
+
+bool MainWindow::existsCalibration() {
+    this->reader = new ReaderXml();
+    return this->reader->exists(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
 }
