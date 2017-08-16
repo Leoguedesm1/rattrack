@@ -34,6 +34,7 @@ public:
     void executeCalibration();
     void calcRadius();
     void writeHomographyInfos();
+    void drawCircle(Point2d center, double radius);
 
 private slots:
 
@@ -46,6 +47,7 @@ private slots:
     //void writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs);
     void getHomography(Mat imageTest);
     Mat detectCircle();
+    void getMouseCoordinate(int evt, int x, int y, int flags, void* ptr);
 
 private:
 
@@ -65,7 +67,6 @@ private:
     Mat applyHomography;
     vector< Point2f> srcPoints;
     vector< Point2f> dstPoints;
-    Vec3i c;
     Mat homography2;
 };
 

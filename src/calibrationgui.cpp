@@ -14,14 +14,21 @@ CalibrationGUI::CalibrationGUI(QWidget *parent) : QWidget(parent), ui(new Ui::Ca
     ui->setupUi(this);
     instanceGUI = this;
 
+    ui->lbFrame->installEventFilter(this);
+
+    centerPoint.x = -1;
+    centerPoint.y = -1;
+    radius = -1;
+    editCenterPoint = true;
+    editRadius = false;
+
     //Full screen and black background
     this->showMaximized();
     ui->lbFrame->setStyleSheet("background-color: rgb(0, 0, 0);");
 
     //Blocking tools
+    ui->btStart->setEnabled(false);
     ui->frameTool->setEnabled(false);
-    ui->lbCalib->hide();
-    ui->progressBar->setEnabled(false);
 }
 
 CalibrationGUI::~CalibrationGUI() {
@@ -40,29 +47,25 @@ void CalibrationGUI::on_btCancel_clicked() {
     this->mw->show();
 }
 
-void CalibrationGUI::on_btOK_clicked() {
+void CalibrationGUI::on_btStart_clicked() {
 
     //Conditions to initiate calibration
     QString board_h = ui->tbHeight->text();
     QString board_w = ui->tbWidth->text();
-    QString n_boards = ui->tbSquad->text();
     QString measure = ui->tbMeasure->text();
 
-    if(board_h.isEmpty() || board_w.isEmpty() || n_boards.isEmpty() || measure.isEmpty())
+    if(board_h.isEmpty() || board_w.isEmpty() || measure.isEmpty())
          QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha todos os campos."));
     else{
 
         //Creating directory
         this->createCalibrationDirectory();
 
-        //Reading video
-        QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Video Files (*.avi)"));
-
         //Setting GUI
         ui->frameInfos->setEnabled(false);
 
         //Creating Calibration object
-        this->calibrationCam = new Calibration(fileName, board_w.toInt(), board_h.toInt(), n_boards.toInt(),
+        this->calibrationCam = new Calibration(fileName, board_w.toInt() - 1, board_h.toInt() - 1, board_w.toInt()*board_h.toInt(),
                                                measure.toFloat());
 
         //Start calibration
@@ -79,21 +82,9 @@ void CalibrationGUI::createCalibrationDirectory() {
 void CalibrationGUI::showImage(Mat image) {
     Mat showFrame;
     cvtColor(image, showFrame, CV_BGR2RGB);
-    cv::resize(showFrame, showFrame, Size(704, 480));
+    //cv::resize(showFrame, showFrame, Size(704, 480));
     QImage imageShow((const uchar *) showFrame.data, showFrame.cols, showFrame.rows, showFrame.step, QImage::Format_RGB888);
     ui->lbFrame->setPixmap(QPixmap::fromImage(imageShow));
-}
-
-void CalibrationGUI::setValueLoadBar(int value) {
-    ui->progressBar->setValue(value);
-}
-
-void CalibrationGUI::setTotalValueLoadBar(int value) {
-    ui->progressBar->setRange(0, value);
-}
-
-void CalibrationGUI::setProgressBar(bool status) {
-    ui->progressBar->setEnabled(status);
 }
 
 void CalibrationGUI::setStatus(QString status) {
@@ -109,52 +100,84 @@ void CalibrationGUI::setTool(bool status) {
     ui->frameTool->setEnabled(status);
 }
 
-void CalibrationGUI::setRadiusMaxValue(int value) {
-    this->radiusMax = value;
-    ui->bMaxRadius->setValue(value);
-    ui->lbMax->setText(QString::number(value));
-}
+void CalibrationGUI::on_btFinish_clicked() {
 
-void CalibrationGUI::setRadiusMinValue(int value) {
-    this->radiusMin = value;
-    ui->bMinRadius->setValue(value);
-    ui->lbMin->setText(QString::number(value));
-}
+    if(!editCenterPoint && !editRadius) {
+        //Saving Homography infos
+        this->calibrationCam->writeHomographyInfos();
 
-int CalibrationGUI::getRadiusMaxValue() {
-    return this->radiusMax;
-}
+        //Closing Calibration
+        QMessageBox::information(this, tr("Calibracao"), tr("A calibracao foi concluida!"));
+        this->~CalibrationGUI();
+        this->mw->show();
+    }else
+        QMessageBox::critical(this, tr("Calibracao"), tr("Porfavor defina o circulo de deteccao antes de prosseguir!"));
 
-int CalibrationGUI::getRadiusMinValue() {
-    return this->radiusMin;
-}
-
-void CalibrationGUI::on_bMaxRadius_valueChanged(int value) {
-    this->setRadiusMaxValue(value);
-    this->calibrationCam->calcRadius();
-}
-
-void CalibrationGUI::on_bMinRadius_valueChanged(int value) {
-    this->setRadiusMinValue(value);
-    this->calibrationCam->calcRadius();
-}
-
-void CalibrationGUI::on_btOKRadius_clicked() {
-    //Saving Homography infos
-    this->calibrationCam->writeHomographyInfos();
-
-    //Closing Calibration
-    QMessageBox::information(this, tr("Calibracao"), tr("A calibracao foi concluida!"));
-    this->~CalibrationGUI();
-    this->mw->show();
-}
-
-void CalibrationGUI::setBtOKRadius(bool status) {
-    ui->btOKRadius->setEnabled(status);
 }
 
 void CalibrationGUI::errorOcurred(QString error) {
     QMessageBox::critical(this, tr("Calibracao"), tr(error.toAscii().data()));
     this->~CalibrationGUI();
     this->mw->show();
+}
+
+void CalibrationGUI::on_btLoadFile_clicked() {
+
+    //Reading video
+    fileName = QFileDialog::getOpenFileName(this, tr("Escolha o video de calibracao"), QString(), tr("Video Files (*.avi)"));
+
+    if(!(fileName.isEmpty())) {
+        ui->btStart->setEnabled(true);
+        QString filename = fileName.section("/", -1, -1);
+        ui->lbFile->setText(filename);
+    }
+}
+
+bool CalibrationGUI::eventFilter(QObject * watched, QEvent * event) {
+    if(watched != ui->lbFrame)
+        return false;
+
+    if(event->type() == QEvent::MouseButtonPress) {
+        if(editCenterPoint) {
+            const QMouseEvent* const me = static_cast<const QMouseEvent*>( event );
+            const QPointF p = me->posF();
+            centerPoint.x = ((double)p.x());
+            centerPoint.y = ((double)p.y());
+            editCenterPoint = false;
+            editRadius = true;
+            this->calibrationCam->drawCircle(centerPoint, -1);
+            this->setStatus("Agora defina o raio clicando na distancia em que termina o circulo!");
+        }else if(editRadius) {
+            const QMouseEvent* const mev = static_cast<const QMouseEvent*>(event);
+            const QPointF pf = mev->posF();
+            double diffX = centerPoint.x - pf.x();
+            double diffY = centerPoint.y - pf.y();
+            radius = sqrt((diffX*diffX)+(diffY*diffY));
+            this->calibrationCam->drawCircle(centerPoint, radius);
+            this->setStatus("Podemos finalizar a calibracao!");
+            editRadius = false;
+        }else
+            QMessageBox::critical(this, tr("Calibracao"), tr("Para editar o circulo clique em 'Editar Circulo'"));
+    }
+
+    return false;
+}
+
+void CalibrationGUI::on_btEditCircle_clicked() {
+    editCenterPoint = true;
+    editRadius = false;
+    this->setStatus("Por favor selecione o centro!");
+}
+
+void CalibrationGUI::on_btCancel2_clicked() {
+    this->~CalibrationGUI();
+    this->mw->show();
+}
+
+Point2d CalibrationGUI::getCenter() {
+    return this->centerPoint;
+}
+
+double CalibrationGUI::getRadius() {
+    return this->radius;
 }

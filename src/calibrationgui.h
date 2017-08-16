@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <cv.h>
+#include <QMouseEvent>
 
 class MainWindow;
 class Calibration;
@@ -29,29 +30,32 @@ public:
     void setStatus(QString status);
     void showStatus();
     void setTool(bool status);
-    void setRadiusMaxValue(int value);
-    void setRadiusMinValue(int value);
-    int getRadiusMaxValue();
-    int getRadiusMinValue();
     void setBtOKRadius(bool status);
     void errorOcurred(QString error);
+    bool eventFilter(QObject * watched, QEvent * event);
+    Point2d getCenter();
+    double getRadius();
 
 private slots:
     void createCalibrationDirectory();
     void on_btCancel_clicked();
-    void on_btOK_clicked();
+    void on_btStart_clicked();
 
-    void on_bMaxRadius_valueChanged(int value);
-    void on_bMinRadius_valueChanged(int value);
+    void on_btFinish_clicked();
+    void on_btLoadFile_clicked();
+    void on_btEditCircle_clicked();
 
-    void on_btOKRadius_clicked();
+    void on_btCancel2_clicked();
 
 private:
     Ui::CalibrationGUI *ui;
     static CalibrationGUI* instanceGUI;
     MainWindow* mw;
     Calibration* calibrationCam;
-    int radiusMax, radiusMin;
+    double radius;
+    QString fileName;
+    Point2d centerPoint;
+    bool editCenterPoint, editRadius;
 };
 
 #endif // CALIBRATIONGUI_H

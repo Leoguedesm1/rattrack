@@ -4,8 +4,6 @@
 Calibration::Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure) {
 
     this->cg = CalibrationGUI::getInstance();
-    this->cg->setTotalValueLoadBar(n_boards);
-    this->cg->setProgressBar(true);
 
     this->fileName = fileName;
     this->boardW = board_w;
@@ -113,9 +111,6 @@ Mat Calibration::analyzisVideo() {
 
         //Saving image
         imwrite(imageName, image);
-
-        //Modifying ProgressBar
-        this->cg->setValueLoadBar(successes);
 
         //Showing image
         this->cg->showImage(image);
@@ -238,6 +233,8 @@ void Calibration::getHomography(Mat imageTest) {
     this->homography2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
 
     warpPerspective(imageTest, this->applyHomography, this->homography2, Size(imageSize.width, imageSize.height));
+    cvtColor(this->applyHomography, imageTest, CV_GRAY2RGB);
+    this->cg->showImage(imageTest);
 
     //Save test image
     imwrite(CALIBRATION_DIR_NAME + "/homographyApply.bmp", this->applyHomography);
@@ -245,41 +242,23 @@ void Calibration::getHomography(Mat imageTest) {
     //Setting GUI
     this->cg->setTool(true);
 
-    //Default Settings
-    this->cg->setRadiusMaxValue(133);
-    this->cg->setRadiusMinValue(110);
+    this->cg->setStatus("Defina o centro do circulo clicando na imagem. "
+                        "Caso queira altera-lo use a opcao 'Alterar Centro' nas ferramentas.");
 
 }
 
-void Calibration::calcRadius() {
-
-    //Finding center and radius
+void Calibration::drawCircle(Point2d center, double radius) {
     Mat drawCircle;
     applyHomography.copyTo(drawCircle);
-    vector<Vec3f> circles;
-    HoughCircles(drawCircle, circles, HOUGH_GRADIENT, 1, 10, 100, 30, this->cg->getRadiusMinValue(),
-                 this->cg->getRadiusMaxValue());
+    cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
+
+    //Draw center
+    circle(drawCircle, Point(center.x, center.y), 1, Scalar(0,0,255), 5);
 
     //Draw circle
-    if(circles.size() > 0) {
-
-        //Setting Status
-        this->cg->setStatus("Calculando circulo...");
-        this->cg->setBtOKRadius(true);
-
-        cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
-        this->c = circles[0];
-        circle(drawCircle, Point(c[0], c[1]), c[2], Scalar(255, 0, 0), 1, 8, 0);
-        circle(drawCircle, Point(c[0], c[1]), 1, Scalar(255, 0, 0), 1, 8, 0);
-
-        //Showing circle found
-        this->cg->showImage(drawCircle);
-    }else{
-        this->cg->setStatus("Circulo nao encontrado!");
-        drawCircle = Mat::zeros(704, 480, CV_8UC3);
-        this->cg->showImage(drawCircle);
-        this->cg->setBtOKRadius(false);
-    }
+    if(radius != -1)
+        circle(drawCircle, Point(center.x, center.y), radius, Scalar(0,0,255), 3);
+    this->cg->showImage(drawCircle);
 }
 
 void Calibration::writeHomographyInfos() {
@@ -288,8 +267,8 @@ void Calibration::writeHomographyInfos() {
     writer->writeInFile("src_points", srcPoints, &fs);
     writer->writeInFile("dst_points", dstPoints, &fs);
     writer->writeInFile("homography_matrix", homography2, &fs);
-    writer->writeInFile("center_circle", Point(c[0], c[1]), &fs);
-    writer->writeInFile("radius", c[2], &fs);
+    writer->writeInFile("center_circle", this->cg->getCenter(), &fs);
+    writer->writeInFile("radius", this->cg->getRadius(), &fs);
     writer->writeInFile("pixel_ratio", this->pixelRatio, &fs);
     writer->closeFile(&fs);
 }
