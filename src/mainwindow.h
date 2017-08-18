@@ -49,6 +49,7 @@ public:
     void showImage(Mat image);
     void setStatus(string status);
     void setButtonPlay(bool status);
+    void unlockStart();
 
     void closeTest();
 

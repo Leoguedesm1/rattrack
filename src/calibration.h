@@ -13,7 +13,7 @@
 #include <QString>
 #include <QDir>
 #include<limits>
-#include "outxml.h"
+#include "writerxml.h"
 
 class CalibrationGUI;
 
@@ -68,6 +68,10 @@ private:
     vector< Point2f> srcPoints;
     vector< Point2f> dstPoints;
     Mat homography2;
+
+    WriterInterface* writerHomography;
+    WriterInterface* writerCalibration;
+    WriterInterface* writerImageInfos;
 };
 
 #endif // CALIBRATION_H

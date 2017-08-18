@@ -28,7 +28,7 @@ class MainWindow;
 #include "video.h"
 #include "threshold.h"
 #include "readerxml.h"
-#include "outcsv.h"
+#include "writercsv.h"
 
 using namespace std;
 using namespace cv;
@@ -98,12 +98,10 @@ private:
     Mat srcFrame, perspectiveFrame;
 
     Point2d coordBBfore, coordBefore, coordCurrent;
-
-    ofstream statisticsFile;
-
     vector<Point2d> coordinates;
 
-    outCSV* writerCSV;
+    WriterInterface* writerStatistics;
+    WriterInterface* writerLearningIndex;
 };
 
 #endif // TRACKER_H

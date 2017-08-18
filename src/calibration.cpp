@@ -13,6 +13,10 @@ Calibration::Calibration(QString fileName, int board_w, int board_h, int n_board
 
     //Getting new corners point with a arbitrary value of pixel size (L variable)
     this->pixelRatio = this->measure / L;
+
+    this->writerCalibration = new WriterXML();
+    this->writerHomography = new WriterXML();
+    this->writerImageInfos = new WriterXML();
 }
 
 void Calibration::executeCalibration() {
@@ -120,15 +124,15 @@ Mat Calibration::analyzisVideo() {
 }
 
 void Calibration::writeImageInfos() {
-    outXML* writer = new outXML();
-    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + INFO_FILE_NAME);
-    writer->writeInFile("image_width", this->imageSize.width, &fs);
-    writer->writeInFile("image_height", this->imageSize.height, &fs);
-    writer->writeInFile("board_width", this->boardW, &fs);
-    writer->writeInFile("board_height", this->boardH, &fs);
-    writer->writeInFile("n_boards", this->nBoards, &fs);
-    writer->writeInFile("square_size", this->measure, &fs);
-    writer->closeFile(&fs);
+
+    this->writerImageInfos->startFile(CALIBRATION_DIR_NAME + INFO_FILE_NAME);
+    this->writerImageInfos->write("image_width"); this->writerImageInfos->write(this->imageSize.width);
+    this->writerImageInfos->write("image_height"); this->writerImageInfos->write(this->imageSize.height);
+    this->writerImageInfos->write("board_width"); this->writerImageInfos->write(this->boardW);
+    this->writerImageInfos->write("board_height"); this->writerImageInfos->write(this->boardH);
+    this->writerImageInfos->write("n_boards"); this->writerImageInfos->write(this->nBoards);
+    this->writerImageInfos->write("square_size"); this->writerImageInfos->write(this->measure);
+    this->writerImageInfos->closeFile();
 }
 
 /*void Calibration::getCalibration() {
@@ -144,15 +148,15 @@ void Calibration::writeImageInfos() {
 }
 
 void Calibration::writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs) {
-    outXML* writer = new outXML();
-    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + CALIB_FILE_NAME);
-    writer->writeInFile("intrinsic_matrix", intrinsic_Matrix, &fs);
-    writer->writeInFile("distortion_coeffs", distortion_coeffs, &fs);
-    writer->writeInFile("rotation_vector", rvecs, &fs);
-    writer->writeInFile("translation_vector", tvecs, &fs);
-    writer->writeInFile("object_points", this->objectPoints, &fs);
-    writer->writeInFile("image_points", this->imagePoints, &fs);
-    writer->closeFile(&fs);
+
+    this->writerCalibration->startFile(CALIBRATION_DIR_NAME + CALIB_FILE_NAME);
+    this->writerCalibration->write("intrinsic_matrix"); this->writerCalibration->write(intrinsic_Matrix);
+    this->writerCalibration->write("distortion_coeffs"); this->writerCalibration->write(distortion_coeffs);
+    this->writerCalibration->write("rotation_vector"); this->writerCalibration->write(rvecs);
+    this->writerCalibration->write("translation_vector"); this->writerCalibration->write(tvecs);
+    this->writerCalibration->write("object_points"); this->writerCalibration->write(this->objectPoints);
+    this->writerCalibration->write("image_points"); this->writerCalibration->write(this->imagePoints);
+    this->writerCalibration->closeFile();
 }*/
 
 void Calibration::getHomography(Mat imageTest) {
@@ -262,13 +266,13 @@ void Calibration::drawCircle(Point2d center, double radius) {
 }
 
 void Calibration::writeHomographyInfos() {
-    outXML* writer = new outXML();
-    FileStorage fs = writer->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
-    writer->writeInFile("src_points", srcPoints, &fs);
-    writer->writeInFile("dst_points", dstPoints, &fs);
-    writer->writeInFile("homography_matrix", homography2, &fs);
-    writer->writeInFile("center_circle", this->cg->getCenter(), &fs);
-    writer->writeInFile("radius", this->cg->getRadius(), &fs);
-    writer->writeInFile("pixel_ratio", this->pixelRatio, &fs);
-    writer->closeFile(&fs);
+
+    this->writerHomography->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
+    this->writerHomography->write("src_points"); this->writerHomography->write(srcPoints);
+    this->writerHomography->write("dst_points"); this->writerHomography->write(dstPoints);
+    this->writerHomography->write("homography_matrix"); this->writerHomography->write(homography2);
+    this->writerHomography->write("center_circle"); this->writerHomography->write(this->cg->getCenter());
+    this->writerHomography->write("radius"); this->writerHomography->write(this->cg->getRadius());
+    this->writerHomography->write("pixel_ratio"); this->writerHomography->write(this->pixelRatio);
+    this->writerHomography->closeFile();
 }

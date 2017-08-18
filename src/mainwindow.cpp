@@ -452,6 +452,8 @@ void MainWindow::resetInterface() {
     ui->lbTeste->setText("");
 
     ui->btCamConfig->setEnabled(true);
+
+    ui->lbStatus->setText("Aguardando inicio do teste.");
 }
 
 void MainWindow::closeTest() {
@@ -506,4 +508,9 @@ void MainWindow::on_btAdvancedSettings_clicked() {
 bool MainWindow::existsCalibration() {
     this->reader = new ReaderXml();
     return this->reader->exists(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
+}
+
+void MainWindow::unlockStart() {
+    ui->btFile->setEnabled(true);
+    ui->btDir->setEnabled(true);
 }
