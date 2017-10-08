@@ -12,7 +12,12 @@
         <file>start.png</file>
         <file>config.png</file>
         <file>cancel.png</file>
-        <file>editCenter.png</file>
         <file>finish.png</file>
+        <file>circle.png</file>
+        <file>delete.png</file>
+        <file>edit.png</file>
+        <file>move.png</file>
+        <file>addLine.png</file>
+        <file>quadrants.png</file>
     </qresource>
 </RCC>

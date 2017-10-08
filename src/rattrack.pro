@@ -38,11 +38,12 @@ HEADERS  += \
     calibration.h \
     detectorinterface.h \
     threshold.h \
-    outxml.h \
     calibrationgui.h \
-    outcsv.h \
     readerinterface.h \
-    readerxml.h
+    readerxml.h \
+    writerinterface.h \
+    writercsv.h \
+    writerxml.h
 
 FORMS    += mainwindow.ui \
     calibrationgui.ui

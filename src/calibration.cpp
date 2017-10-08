@@ -256,6 +256,12 @@ void Calibration::drawCircle(Point2d center, double radius) {
     applyHomography.copyTo(drawCircle);
     cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
 
+    if(center.x == -1 && center.y == -1) {
+        this->cg->showImage(drawCircle);
+        return;
+    }
+
+
     //Draw center
     circle(drawCircle, Point(center.x, center.y), 1, Scalar(0,0,255), 5);
 

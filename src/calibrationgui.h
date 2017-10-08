@@ -43,9 +43,15 @@ private slots:
 
     void on_btFinish_clicked();
     void on_btLoadFile_clicked();
-    void on_btEditCircle_clicked();
+    void on_btCircle_clicked();
 
     void on_btCancel2_clicked();
+
+    void on_btEditCircle_clicked();
+
+    void on_btMoveCircle_clicked();
+
+    void on_btDeleteCircle_clicked();
 
 private:
     Ui::CalibrationGUI *ui;
@@ -55,7 +61,10 @@ private:
     double radius;
     QString fileName;
     Point2d centerPoint;
-    bool editCenterPoint, editRadius;
+    bool editCenterPoint;
+    bool circle, editCircle, moveCircle;
+    int countCircle;
+    QPointF before, current;
 };
 
 #endif // CALIBRATIONGUI_H

@@ -16,11 +16,37 @@ CalibrationGUI::CalibrationGUI(QWidget *parent) : QWidget(parent), ui(new Ui::Ca
 
     ui->lbFrame->installEventFilter(this);
 
+    setMouseTracking(true);
     centerPoint.x = -1;
     centerPoint.y = -1;
     radius = -1;
-    editCenterPoint = true;
-    editRadius = false;
+
+    circle = false;
+    editCircle = false;
+    moveCircle = false;
+    countCircle = 1;
+
+    this->ui->btEditCircle->setEnabled(false);
+    this->ui->btMoveCircle->setEnabled(false);
+    this->ui->btDeleteCircle->setEnabled(false);
+
+    this->ui->btAddLine->setEnabled(false);
+    this->ui->lbLine1->setEnabled(false);
+    this->ui->btEditLine1->setEnabled(false);
+    this->ui->btMoveLine1->setEnabled(false);
+    this->ui->btDeleteLine1->setEnabled(false);
+    this->ui->lbLine2->setEnabled(false);
+    this->ui->btEditLine2->setEnabled(false);
+    this->ui->btMoveLine2->setEnabled(false);
+    this->ui->btDeleteLine2->setEnabled(false);
+    this->ui->lbLine3->setEnabled(false);
+    this->ui->btEditLine3->setEnabled(false);
+    this->ui->btMoveLine3->setEnabled(false);
+    this->ui->btDeleteLine3->setEnabled(false);
+    this->ui->lbLine4->setEnabled(false);
+    this->ui->btEditLine4->setEnabled(false);
+    this->ui->btMoveLine4->setEnabled(false);
+    this->ui->btDeleteLine4->setEnabled(false);
 
     //Full screen and black background
     this->showMaximized();
@@ -55,7 +81,7 @@ void CalibrationGUI::on_btStart_clicked() {
     QString measure = ui->tbMeasure->text();
 
     if(board_h.isEmpty() || board_w.isEmpty() || measure.isEmpty())
-         QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha todos os campos."));
+        QMessageBox::critical(this, tr("Erro"), tr ("Por favor, preencha todos os campos."));
     else{
 
         //Creating directory
@@ -102,7 +128,7 @@ void CalibrationGUI::setTool(bool status) {
 
 void CalibrationGUI::on_btFinish_clicked() {
 
-    if(!editCenterPoint && !editRadius) {
+    if(!editCenterPoint) {
         //Saving Homography infos
         this->calibrationCam->writeHomographyInfos();
 
@@ -137,36 +163,62 @@ bool CalibrationGUI::eventFilter(QObject * watched, QEvent * event) {
     if(watched != ui->lbFrame)
         return false;
 
-    if(event->type() == QEvent::MouseButtonPress) {
-        if(editCenterPoint) {
-            const QMouseEvent* const me = static_cast<const QMouseEvent*>( event );
-            const QPointF p = me->posF();
-            centerPoint.x = ((double)p.x());
-            centerPoint.y = ((double)p.y());
-            editCenterPoint = false;
-            editRadius = true;
-            this->calibrationCam->drawCircle(centerPoint, -1);
-            this->setStatus("Agora defina o raio clicando na distancia em que termina o circulo!");
-        }else if(editRadius) {
-            const QMouseEvent* const mev = static_cast<const QMouseEvent*>(event);
-            const QPointF pf = mev->posF();
-            double diffX = centerPoint.x - pf.x();
-            double diffY = centerPoint.y - pf.y();
-            radius = sqrt((diffX*diffX)+(diffY*diffY));
-            this->calibrationCam->drawCircle(centerPoint, radius);
-            this->setStatus("Podemos finalizar a calibracao!");
-            editRadius = false;
-        }else
-            QMessageBox::critical(this, tr("Calibracao"), tr("Para editar o circulo clique em 'Editar Circulo'"));
+    if(circle) {
+        //Edit Button
+        if(editCircle) {
+            if(event->type() == QEvent::MouseMove) {
+
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                current = mouseEvent->posF();
+
+                //Drawing a point
+                if(countCircle == 1) {
+                    centerPoint = Point2d(((double)current.x()), ((double)current.y()));
+                    countCircle++;
+
+                }else{
+
+                    //Calculing distance (radius) between points before and current
+                    double diffX = current.x() - before.x();
+                    double diffY = current.y() - before.y();
+                    double distance = sqrt((diffX*diffX) + (diffY*diffY));
+
+                    if(diffX+diffY > 0)
+                        radius = radius + distance;
+                    else if(diffX+diffY < 0)
+                        radius = abs(radius - distance);
+                }
+
+                this->calibrationCam->drawCircle(centerPoint, radius);
+                before = current;
+                this->ui->btMoveCircle->setEnabled(true);
+                this->ui->btDeleteCircle->setEnabled(true);
+            }
+        }
+
+        //MoveButton
+        if(moveCircle) {
+            if(event->type() == QEvent::MouseMove) {
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+                QPointF pos = mouseEvent->posF();
+                centerPoint = Point2d(((double)pos.x()), ((double)pos.y()));
+                this->calibrationCam->drawCircle(centerPoint, radius);
+            }
+        }
     }
 
     return false;
 }
 
-void CalibrationGUI::on_btEditCircle_clicked() {
-    editCenterPoint = true;
-    editRadius = false;
-    this->setStatus("Por favor selecione o centro!");
+void CalibrationGUI::on_btCircle_clicked() {
+    circle = true;
+    this->ui->btCircle->setEnabled(false);
+    this->ui->btEditCircle->setEnabled(true);
+    if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) {
+        this->ui->btDeleteCircle->setEnabled(true);
+        this->ui->btMoveCircle->setEnabled(true);
+    }
+    this->setStatus("Pronto para editar a area de deteccao!");
 }
 
 void CalibrationGUI::on_btCancel2_clicked() {
@@ -180,4 +232,35 @@ Point2d CalibrationGUI::getCenter() {
 
 double CalibrationGUI::getRadius() {
     return this->radius;
+}
+
+void CalibrationGUI::on_btEditCircle_clicked() {
+    editCircle = true;
+    moveCircle = false;
+    this->ui->btEditCircle->setEnabled(false);
+    if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) this->ui->btMoveCircle->setEnabled(true);
+    this->setStatus("Clique e arraste o mouse sobre a tela para gerar a area de deteccao!");
+}
+
+void CalibrationGUI::on_btMoveCircle_clicked() {
+    moveCircle = true;
+    editCircle = false;
+    this->ui->btEditCircle->setEnabled(true);
+    this->ui->btMoveCircle->setEnabled(false);
+    this->setStatus("Clique e arraste o mouse para mover o centro do circulo!");
+}
+
+void CalibrationGUI::on_btDeleteCircle_clicked() {
+    this->ui->btMoveCircle->setEnabled(false);
+    editCircle = false;
+    moveCircle = false;
+    countCircle = 1;
+    centerPoint = Point2d(-1, -1);
+    current = QPointF(-1, -1);
+    before = current;
+    radius = -1;
+    this->calibrationCam->drawCircle(centerPoint, radius);
+    this->ui->btEditCircle->setEnabled(true);
+    this->ui->btDeleteCircle->setEnabled(false);
+    this->setStatus("Pronto para editar a area de deteccao!");
 }
