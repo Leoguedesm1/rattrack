@@ -30,6 +30,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     //Disabled buttons
     ui->frameTools->setEnabled(false);
     ui->btIniciar->setEnabled(false);
+    ui->btCancel1->setEnabled(false);
+    ui->btCancel2->setEnabled(false);
     ui->label->setEnabled(false);
     ui->lbAnimal->setEnabled(false);
     ui->label_2->setEnabled(false);
@@ -123,6 +125,7 @@ void MainWindow::setButtonPlay(bool status) {
         QIcon ButtonIcon(pixmap);
         ui->btPlay->setIcon(ButtonIcon);
         ui->btPlay->setToolTip("Pause");
+        ui->btPlay->setText("Play Teste");
         ui->lbStatus->setText("Pausado!");
 
     //status = false then the video is not playing so u have to play
@@ -130,6 +133,7 @@ void MainWindow::setButtonPlay(bool status) {
         QPixmap pixmap(":/pause.png");
         QIcon ButtonIcon(pixmap);
         ui->btPlay->setIcon(ButtonIcon);
+        ui->btPlay->setText("Pause Teste");
         ui->btPlay->setToolTip("Play");
     }
 
@@ -311,6 +315,7 @@ void MainWindow::on_btFile_clicked() {
 
     //Realising tools
     ui->btIniciar->setEnabled(true);
+    ui->btCancel1->setEnabled(true);
     ui->label->setEnabled(true);
     ui->label_2->setEnabled(true);
     ui->label_4->setEnabled(true);
@@ -338,6 +343,7 @@ void MainWindow::on_btDir_clicked() {
 
     //Releasing tools
     ui->btIniciar->setEnabled(true);
+    ui->btCancel1->setEnabled(true);
     ui->label->setEnabled(true);
     ui->label_2->setEnabled(true);
     ui->label_4->setEnabled(true);
@@ -367,6 +373,7 @@ void MainWindow::on_btIniciar_clicked() {
         //Blocking buttons
         ui->btDir->setEnabled(true);
         ui->btFile->setEnabled(true);
+        ui->btCancel1->setEnabled(false);
 
         //Changing GUI
         ui->lbAnimal->show();
@@ -390,6 +397,7 @@ void MainWindow::on_btIniciar_clicked() {
         ui->btPlay->setEnabled(true);
         ui->btReset->setEnabled(true);
         ui->btSnap->setEnabled(true);
+        ui->btCancel2->setEnabled(true);
 
         //Reading video
         this->readVideo(this->captureVideos[0]);
@@ -437,21 +445,30 @@ void MainWindow::resetInterface() {
     ui->frameTools->setEnabled(false);
 
     ui->btIniciar->setEnabled(false);
+    ui->btCancel1->setEnabled(false);
 
     ui->label->setEnabled(false);
-    ui->lbAnimal->setEnabled(false);
-
     ui->label_2->setEnabled(false);
-    ui->lbTeste->setEnabled(false);
-
     ui->label_4->setEnabled(false);
-    ui->lbFile->setEnabled(false);
 
-    ui->lbAnimal->setText("");
+    ui->lbFile->setEnabled(false);
     ui->lbFile->setText("");
-    ui->lbTeste->setText("");
+
+    if(animalInput != NULL && testeInput != NULL) {
+        delete animalInput;
+        delete testeInput;
+        animalInput = NULL;
+        testeInput = NULL;
+    }else{
+        ui->lbAnimal->setEnabled(false);
+        ui->lbTeste->setEnabled(false);
+        ui->lbAnimal->setText("");
+        ui->lbTeste->setText("");
+    }
 
     ui->btCamConfig->setEnabled(true);
+    ui->btDir->setEnabled(true);
+    ui->btFile->setEnabled(true);
 
     ui->lbStatus->setText("Aguardando inicio do teste.");
 }
@@ -513,4 +530,14 @@ bool MainWindow::existsCalibration() {
 void MainWindow::unlockStart() {
     ui->btFile->setEnabled(true);
     ui->btDir->setEnabled(true);
+}
+
+void MainWindow::on_btCancel1_clicked() {
+    resetInterface();
+}
+
+void MainWindow::on_btCancel2_clicked() {
+    this->tracker->setTimer(false);
+    this->tracker->removeDirectory();
+    closeTest();
 }

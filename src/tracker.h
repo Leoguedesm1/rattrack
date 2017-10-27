@@ -38,6 +38,8 @@ const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
 const string TESTES_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Testes";
 const string STATISTICS_FILE_NAME = "/statistics.csv";
 const string LEARNING_FILE_NAME = "/learning.csv";
+const string QUADRANT_FILE_NAME = "/quadrants.yml";
+const double INF = std::numeric_limits<double>::infinity();
 
 class Tracker : public QObject {
 
@@ -58,9 +60,14 @@ public:
     double getRadius();
     MainWindow* getGUI();
 
+public slots:
+    void removeDirectory();
+    void setTimer(bool status);
+
 private slots:
 
     void readHomographyFile();
+    void readQuadrantFile();
     void createTestDirectory();
     void createSnapshotDirectory();
     void startWriteStatistics();
@@ -70,6 +77,7 @@ private slots:
     void addCordinates(Point2d coord);
     Mat drawPath();
     void calcAndSaveStatistics(bool find);
+    int calcQuadrant();
     void endVideo();
     void calcLearningIndex();
 
@@ -94,6 +102,8 @@ private:
     Point2d center;
     double pixelRatio;
     double radius;
+    vector<double> quadrantAngles;
+    bool quadrants;
 
     Mat srcFrame, perspectiveFrame;
 
@@ -102,6 +112,7 @@ private:
 
     WriterInterface* writerStatistics;
     WriterInterface* writerLearningIndex;
+
 };
 
 #endif // TRACKER_H

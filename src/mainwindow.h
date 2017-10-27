@@ -87,6 +87,10 @@ private slots:
 
     bool existsCalibration();
 
+    void on_btCancel1_clicked();
+
+    void on_btCancel2_clicked();
+
 private:
 
     QString animal;
