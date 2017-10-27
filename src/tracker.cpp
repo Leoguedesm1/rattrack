@@ -109,6 +109,7 @@ void Tracker::executeTracker() {
     //Creating a directory for saving infos test
     createTestDirectory();
 
+
     //Starting write the statistics file
     startWriteStatistics();
 
@@ -590,8 +591,9 @@ void Tracker::removeDirectory() {
 
     //Snapshots
     for(int i = 0; i < this->snapshot; i++) {
-        name = TESTES_DIR_NAME + "/" + animal.toAscii().data() + "/Snapshots" + "/snapshot" + i + "_teste_" + this->teste.toAscii().data() + ".bmp";
-        if(remove(name.c_str()) == 0) this->mw->setStatus("Removing Snapshots");
+        ostringstream name1;
+        name1 << TESTES_DIR_NAME << "/" << animal.toAscii().data() << "/Snapshots" << "/snapshot" << i << "_teste_" << this->teste.toAscii().data() << ".bmp";
+        if(remove(name1.str().c_str()) == 0) this->mw->setStatus("Removing Snapshots");
     }
     name = TESTES_DIR_NAME + "/" + animal.toAscii().data() + "/Snapshots";
     if(remove(name.c_str()) == 0) this->mw->setStatus("Removing Snapshot directory");
