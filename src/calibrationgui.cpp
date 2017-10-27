@@ -30,22 +30,26 @@ CalibrationGUI::CalibrationGUI(QWidget *parent) : QWidget(parent), ui(new Ui::Ca
     this->ui->btMoveCircle->setEnabled(false);
     this->ui->btDeleteCircle->setEnabled(false);
 
+    pointLines = vector<Point2d> (4);
+    pointLines.at(0) = Point2d(-1, -1);
+    pointLines.at(1) = Point2d(-1, -1);
+    pointLines.at(2) = Point2d(-1, -1);
+    pointLines.at(3) = Point2d(-1, -1);
+
+    quadrants = false;
+    line1 = false;
+    line2 = false;
+    line3 = false;
+    line4 = false;
+
     this->ui->btAddLine->setEnabled(false);
     this->ui->lbLine1->setEnabled(false);
-    this->ui->btEditLine1->setEnabled(false);
-    this->ui->btMoveLine1->setEnabled(false);
     this->ui->btDeleteLine1->setEnabled(false);
     this->ui->lbLine2->setEnabled(false);
-    this->ui->btEditLine2->setEnabled(false);
-    this->ui->btMoveLine2->setEnabled(false);
     this->ui->btDeleteLine2->setEnabled(false);
     this->ui->lbLine3->setEnabled(false);
-    this->ui->btEditLine3->setEnabled(false);
-    this->ui->btMoveLine3->setEnabled(false);
     this->ui->btDeleteLine3->setEnabled(false);
     this->ui->lbLine4->setEnabled(false);
-    this->ui->btEditLine4->setEnabled(false);
-    this->ui->btMoveLine4->setEnabled(false);
     this->ui->btDeleteLine4->setEnabled(false);
 
     //Full screen and black background
@@ -128,17 +132,35 @@ void CalibrationGUI::setTool(bool status) {
 
 void CalibrationGUI::on_btFinish_clicked() {
 
-    if(!editCenterPoint) {
-        //Saving Homography infos
-        this->calibrationCam->writeHomographyInfos();
+    bool finish = false;
+    //Verifying if user adjust detection area
+    if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) {
 
-        //Closing Calibration
-        QMessageBox::information(this, tr("Calibracao"), tr("A calibracao foi concluida!"));
-        this->~CalibrationGUI();
-        this->mw->show();
+        //Verifying if user makes quadrants configuration
+        if(pointLines.size() == 0) {
+
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(this, tr("Calibracao"), tr("A configuracao dos quadrantes nao foi concluida e nao sera salva!\n"
+                                                                     "Deseja continuar?"), QMessageBox::Yes|QMessageBox::No);
+
+            if(reply == QMessageBox::Yes)
+                finish = true;
+
+        }else{
+            this->calibrationCam->calculateQuads();
+            this->calibrationCam->writeQuadrantInfos();
+            finish = true;
+        }
     }else
-        QMessageBox::critical(this, tr("Calibracao"), tr("Porfavor defina o circulo de deteccao antes de prosseguir!"));
+        QMessageBox::critical(this, tr("Calibracao"), tr("Porfavor defina a area de deteccao antes de finalizar!"));
 
+    if(finish) {
+        this->calibrationCam->writeHomographyInfos();
+        QMessageBox::information(this, tr("Calibracao"), tr("A calibracao foi finalizada com sucesso! Voce voltara a tela inicial."));
+        this->~CalibrationGUI();
+        this->mw->unlockStart();
+        this->mw->show();
+    }
 }
 
 void CalibrationGUI::errorOcurred(QString error) {
@@ -207,18 +229,88 @@ bool CalibrationGUI::eventFilter(QObject * watched, QEvent * event) {
         }
     }
 
+
+    if(quadrants) {
+        if(event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseMove) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            QPointF pos = mouseEvent->posF();
+
+            if(line1) {
+                pointLines.at(0) = this->calibrationCam->findIntersection(centerPoint, Point2d(pos.x(), pos.y()), radius);
+                ui->btDeleteLine1->setEnabled(true);
+            }
+
+            if(line2) {
+                pointLines.at(1) = this->calibrationCam->findIntersection(centerPoint, Point2d(pos.x(), pos.y()), radius);
+                ui->btDeleteLine2->setEnabled(true);
+            }
+
+            if(line3) {
+                pointLines.at(2) = this->calibrationCam->findIntersection(centerPoint, Point2d(pos.x(), pos.y()), radius);
+                ui->btDeleteLine3->setEnabled(true);
+            }
+
+            if(line4) {
+                pointLines.at(3) = this->calibrationCam->findIntersection(centerPoint, Point2d(pos.x(), pos.y()), radius);
+                ui->btDeleteLine4->setEnabled(true);
+            }
+
+            this->calibrationCam->drawLine(pointLines, centerPoint, radius);
+        }
+    }
+
     return false;
 }
 
 void CalibrationGUI::on_btCircle_clicked() {
-    circle = true;
-    this->ui->btCircle->setEnabled(false);
-    this->ui->btEditCircle->setEnabled(true);
-    if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) {
-        this->ui->btDeleteCircle->setEnabled(true);
-        this->ui->btMoveCircle->setEnabled(true);
+
+    //Verifying if exists any quadrant's configuration
+    bool quad = false;
+    for(int i = 0; i < (int)pointLines.size(); i++) {
+        if(pointLines.at(i).x != -1 && pointLines.at(i).y != -1) {
+            quad = true;
+            break;
+        }
     }
-    this->setStatus("Pronto para editar a area de deteccao!");
+
+    if(quad) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, tr("Calibracao"), tr("Essa acao excluira qualquer configuracao dos quadrantes!\n"
+                                                                 "Deseja continuar?"), QMessageBox::Yes|QMessageBox::No);
+
+        if(reply == QMessageBox::Yes) {
+            circle = true;
+            this->ui->btCircle->setEnabled(false);
+            this->ui->btEditCircle->setEnabled(true);
+            if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) {
+                this->ui->btDeleteCircle->setEnabled(true);
+                this->ui->btMoveCircle->setEnabled(true);
+            }
+            quadrants = false;
+            line1 = false;
+            line2 = false;
+            line3 = false;
+            line4 = false;
+            for(int i = 0; i < (int) pointLines.size(); i++)
+                pointLines.at(i) = Point2d(-1, -1);
+            this->ui->btAddLine->setEnabled(false);
+            this->ui->btEditQuad->setEnabled(true);
+            this->ui->btDeleteLine1->setEnabled(false);
+            this->ui->btDeleteLine2->setEnabled(false);
+            this->ui->btDeleteLine3->setEnabled(false);
+            this->ui->btDeleteLine4->setEnabled(false);
+            this->setStatus("Pronto para editar a area de deteccao!");
+
+        }
+    }else{
+        circle = true;
+        this->ui->btCircle->setEnabled(false);
+        this->ui->btEditCircle->setEnabled(true);
+        if(centerPoint.x != -1 && centerPoint.y != -1 && radius != -1) {
+            this->ui->btDeleteCircle->setEnabled(true);
+            this->ui->btMoveCircle->setEnabled(true);
+        }
+    }
 }
 
 void CalibrationGUI::on_btCancel2_clicked() {
@@ -251,16 +343,120 @@ void CalibrationGUI::on_btMoveCircle_clicked() {
 }
 
 void CalibrationGUI::on_btDeleteCircle_clicked() {
-    this->ui->btMoveCircle->setEnabled(false);
-    editCircle = false;
-    moveCircle = false;
-    countCircle = 1;
-    centerPoint = Point2d(-1, -1);
-    current = QPointF(-1, -1);
-    before = current;
-    radius = -1;
-    this->calibrationCam->drawCircle(centerPoint, radius);
-    this->ui->btEditCircle->setEnabled(true);
-    this->ui->btDeleteCircle->setEnabled(false);
-    this->setStatus("Pronto para editar a area de deteccao!");
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, tr("Calibracao"), tr("Essa acao excluira qualquer configuracao dos quadrantes!\n"
+                                                             "Deseja continuar?"), QMessageBox::Yes|QMessageBox::No);
+
+    if(reply == QMessageBox::Yes) {
+        this->ui->btMoveCircle->setEnabled(false);
+        editCircle = false;
+        moveCircle = false;
+        countCircle = 1;
+        centerPoint = Point2d(-1, -1);
+        current = QPointF(-1, -1);
+        before = current;
+        radius = -1;
+        this->ui->btEditCircle->setEnabled(true);
+        this->ui->btDeleteCircle->setEnabled(false);
+        this->setStatus("Pronto para editar a area de deteccao!");
+        quadrants = false;
+        line1 = false;
+        line2 = false;
+        line3 = false;
+        line4 = false;
+        for(int i = 0; i < (int) pointLines.size(); i++)
+            pointLines.at(i) = Point2d(-1, -1);
+        this->ui->btAddLine->setEnabled(false);
+        this->ui->btEditQuad->setEnabled(false);
+        this->ui->btDeleteLine1->setEnabled(false);
+        this->ui->btDeleteLine2->setEnabled(false);
+        this->ui->btDeleteLine3->setEnabled(false);
+        this->ui->btDeleteLine4->setEnabled(false);
+        this->calibrationCam->drawCircle(centerPoint, radius);
+    }
+}
+
+void CalibrationGUI::on_btEditQuad_clicked() {
+
+    if(centerPoint.x == -1 && centerPoint.y == -1 && radius == -1)
+        QMessageBox::critical(this, tr("Erro"), tr("Impossivel ajustar quadrantes antes de configurar a area de deteccao!"));
+    else {
+        circle = false;
+        ui->btAddLine->setEnabled(true);
+        ui->btCircle->setEnabled(true);
+        ui->btEditCircle->setEnabled(false);
+        ui->btMoveCircle->setEnabled(false);
+        ui->btDeleteCircle->setEnabled(false);
+        quadrants = true;
+
+    }
+}
+
+void CalibrationGUI::on_btAddLine_clicked() {
+
+    if(!line1 && pointLines.at(0).x == -1 && pointLines.at(0).y == -1) {
+        line1 = true;
+        line2 = false;
+        line3 = false;
+        line4 = false;
+        ui->lbLine1->setEnabled(true);
+    }else if(!line2 && pointLines.at(0).x != -1 && pointLines.at(0).y != -1 && pointLines.at(1).x == -1 && pointLines.at(1).y == -1) {
+        line1 = false;
+        line3 = false;
+        line4 = false;
+        line2 = true;
+        ui->lbLine2->setEnabled(true);
+    }else if(!line3 && pointLines.at(1).x != -1 && pointLines.at(1).y != -1 && pointLines.at(2).x == -1 && pointLines.at(2).y == -1) {
+        line3 = true;
+        line1 = false;
+        line2 = false;
+        line4 = false;
+        ui->lbLine3->setEnabled(true);
+    }else if(!line4 && pointLines.at(0).x != -1 && pointLines.at(2).y != -1 && pointLines.at(3).x == -1 && pointLines.at(3).y == -1) {
+        line4 = true;
+        line1 = false;
+        line3 = false;
+        line2 = false;
+        ui->lbLine4->setEnabled(true);
+    }else
+        QMessageBox::critical(this, tr("Erro"), tr("Primeiro adicione a linha clicando na imagem!"));
+
+    this->setStatus("Clique e arraste o mouse para criar e editar a linha!");
+}
+
+void CalibrationGUI::on_btDeleteLine1_clicked() {
+    line1 = false;
+    pointLines.at(0) = Point2d(-1, -1);
+    ui->btDeleteLine1->setEnabled(false);
+    ui->lbLine1->setEnabled(false);
+    this->calibrationCam->drawLine(pointLines, centerPoint, radius);
+}
+
+void CalibrationGUI::on_btDeleteLine2_clicked() {
+    line2 = false;
+    pointLines.at(1) = Point2d(-1, -1);
+    ui->btDeleteLine2->setEnabled(false);
+    ui->lbLine2->setEnabled(false);
+    this->calibrationCam->drawLine(pointLines, centerPoint, radius);
+}
+
+void CalibrationGUI::on_btDeleteLine3_clicked() {
+    line3 = false;
+    pointLines.at(2) = Point2d(-1, -1);
+    ui->btDeleteLine3->setEnabled(false);
+    ui->lbLine3->setEnabled(false);
+    this->calibrationCam->drawLine(pointLines, centerPoint, radius);
+}
+
+void CalibrationGUI::on_btDeleteLine4_clicked() {
+    line4 = false;
+    pointLines.at(3) = Point2d(-1, -1);
+    ui->btDeleteLine4->setEnabled(false);
+    ui->lbLine4->setEnabled(false);
+    this->calibrationCam->drawLine(pointLines, centerPoint, radius);
+}
+
+vector<Point2d> CalibrationGUI::getPointsQuad() {
+    return this->pointLines;
 }

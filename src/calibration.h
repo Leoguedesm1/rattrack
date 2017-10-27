@@ -24,6 +24,7 @@ const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().con
 const string INFO_FILE_NAME = "/info.yml";
 const string CALIB_FILE_NAME = "/calibration.yml";
 const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
+const string QUADRANT_FILE_NAME = "/quadrants.yml";
 const double INF = std::numeric_limits<double>::infinity();
 const int L = 100;
 
@@ -32,22 +33,23 @@ class Calibration {
 public:
     Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure);
     void executeCalibration();
-    void calcRadius();
-    void writeHomographyInfos();
+
     void drawCircle(Point2d center, double radius);
+    Point2d findIntersection(Point2d center, Point2d pLine, double radius);
+    void drawLine(vector<Point2d> points, Point2d center, double radius);
+    void calculateQuads();
+    void writeHomographyInfos();
+    void writeQuadrantInfos();
 
 private slots:
 
     void setCaptureVideo();
     VideoCapture getCaptureVideo();
-
     Mat analyzisVideo();
     void writeImageInfos();
     //void getCalibration();
     //void writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs);
     void getHomography(Mat imageTest);
-    Mat detectCircle();
-    void getMouseCoordinate(int evt, int x, int y, int flags, void* ptr);
 
 private:
 
@@ -68,10 +70,12 @@ private:
     vector< Point2f> srcPoints;
     vector< Point2f> dstPoints;
     Mat homography2;
+    vector<double> anglesQuad;
 
     WriterInterface* writerHomography;
     WriterInterface* writerCalibration;
     WriterInterface* writerImageInfos;
+    WriterInterface* writerQuadrant;
 };
 
 #endif // CALIBRATION_H

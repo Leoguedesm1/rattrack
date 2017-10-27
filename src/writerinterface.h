@@ -23,6 +23,7 @@ public:
     virtual void write(Point2d data) = 0;
     virtual void write(double data) = 0;
     virtual void write(int data) = 0;
+
 };
 
 #endif // WRITERINTERFACE

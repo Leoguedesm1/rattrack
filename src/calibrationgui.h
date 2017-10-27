@@ -35,23 +35,25 @@ public:
     bool eventFilter(QObject * watched, QEvent * event);
     Point2d getCenter();
     double getRadius();
+    vector<Point2d> getPointsQuad();
 
 private slots:
     void createCalibrationDirectory();
     void on_btCancel_clicked();
     void on_btStart_clicked();
-
     void on_btFinish_clicked();
     void on_btLoadFile_clicked();
     void on_btCircle_clicked();
-
     void on_btCancel2_clicked();
-
     void on_btEditCircle_clicked();
-
     void on_btMoveCircle_clicked();
-
     void on_btDeleteCircle_clicked();
+    void on_btEditQuad_clicked();
+    void on_btAddLine_clicked();
+    void on_btDeleteLine1_clicked();
+    void on_btDeleteLine2_clicked();
+    void on_btDeleteLine3_clicked();
+    void on_btDeleteLine4_clicked();
 
 private:
     Ui::CalibrationGUI *ui;
@@ -61,10 +63,11 @@ private:
     double radius;
     QString fileName;
     Point2d centerPoint;
-    bool editCenterPoint;
     bool circle, editCircle, moveCircle;
     int countCircle;
     QPointF before, current;
+    bool quadrants, line1, line2, line3, line4;
+    vector<Point2d> pointLines;
 };
 
 #endif // CALIBRATIONGUI_H

@@ -1,5 +1,6 @@
 #include "calibration.h"
 #include "calibrationgui.h"
+#define PI 3.14159265
 
 Calibration::Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure) {
 
@@ -17,6 +18,7 @@ Calibration::Calibration(QString fileName, int board_w, int board_h, int n_board
     this->writerCalibration = new WriterXML();
     this->writerHomography = new WriterXML();
     this->writerImageInfos = new WriterXML();
+    this->writerQuadrant = new WriterXML();
 }
 
 void Calibration::executeCalibration() {
@@ -246,8 +248,7 @@ void Calibration::getHomography(Mat imageTest) {
     //Setting GUI
     this->cg->setTool(true);
 
-    this->cg->setStatus("Defina o centro do circulo clicando na imagem. "
-                        "Caso queira altera-lo use a opcao 'Alterar Centro' nas ferramentas.");
+    this->cg->setStatus("Para finalizar configure a area de deteccao e os quadrantes com as ferramentas ao lado!");
 
 }
 
@@ -272,7 +273,6 @@ void Calibration::drawCircle(Point2d center, double radius) {
 }
 
 void Calibration::writeHomographyInfos() {
-
     this->writerHomography->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
     this->writerHomography->write("src_points"); this->writerHomography->write(srcPoints);
     this->writerHomography->write("dst_points"); this->writerHomography->write(dstPoints);
@@ -281,4 +281,113 @@ void Calibration::writeHomographyInfos() {
     this->writerHomography->write("radius"); this->writerHomography->write(this->cg->getRadius());
     this->writerHomography->write("pixel_ratio"); this->writerHomography->write(this->pixelRatio);
     this->writerHomography->closeFile();
+}
+
+Point2d Calibration::findIntersection(Point2d center, Point2d pLine, double radius) {
+
+    Point2d point1, point2;
+    //Equation of line: y-y1 = m(x-x1) -> line is: (center.x, center.y) to (line.x, line.y)
+    //Finding m (tangent of line)
+    double m = (center.y - pLine.y) / (center.x - pLine.x);
+
+    //Taking (x1,y1) = (line.x, line.y) we have the equation like this: y = m*x - m*line.x + line.y
+    //Take b = line.y - m*line.x
+    double b = center.y - (m*center.x);
+
+    //Now we have y = m*x + b
+    //Equation of circle: (x - center.x)^2 + (y - center.y)^2 = radius^2
+    //Replacing y for m*x + b we have: (x - center.x)^2 + (m*x + b - center.y)^2 = radius^2
+    //Take b1 = b - center.y
+    double b1 = b - center.y;
+
+    //So we have (x - center.x)^2 + (m*x + b1)^2 = radius^2
+    //Resolving this we found: (1+m^2)x^2 + (2*m*b1 - 2*center.x)x + (b1^2 - radius^2) = 0
+    //Consider a1 = 1+m^2, b2 = 2(m*b1-centerx), c1 = centerx^2 + b1^2 - radius^2
+    double a1 = 1 + (m*m);
+    double b2 = 2*((m*b1)-center.x);
+    double c1 = (center.x*center.x) + (b1*b1) - (radius*radius);
+
+    //Finally we have: a1*x^2 + b2*x + c1 = 0
+    //Finding the Delta: delta = b2^2 - 4*a1*c1
+    double delta = ((b2*b2) - (4*a1*c1));
+    double raiz = sqrt(delta);
+
+    //Resolving x
+    point1.x = (raiz - b2) / (2*a1);
+    point2.x = -(raiz + b2) / (2*a1);
+
+    //Resolving y with the equation of line y = m*x + b
+    point1.y = (m*point1.x) + b;
+    point2.y = (m*point2.x) + b;
+
+    //To finish we have to choose the point closest to the clicked, so we calcule the distance and compare
+    double diffX, diffY, distance1, distance2;
+    diffX = pLine.x - point1.x;
+    diffY = pLine.y - point1.y;
+    distance1 = (diffX*diffX) + (diffY*diffY);
+    diffX = pLine.x - point2.x;
+    diffY = pLine.y - point2.y;
+    distance2 = (diffX*diffX) + (diffY*diffY);
+
+    if(distance1 <= distance2) return point1;
+    else return point2;
+}
+
+void Calibration::drawLine(vector<Point2d> points, Point2d center, double radius) {
+    Mat drawCircle;
+    applyHomography.copyTo(drawCircle);
+    cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
+
+    circle(drawCircle, Point(center.x, center.y), 1, Scalar(0,0,255), 5);
+    circle(drawCircle, Point(center.x, center.y), radius, Scalar(0,0,255), 3);
+
+    for(int i = 0; i < (int) points.size(); i++) {
+
+        if(points.at(i).x != -1 && points.at(i).y != -1)
+            line(drawCircle, Point(points.at(i).x, points.at(i).y), Point(center.x, center.y), Scalar(0,0,255), 3);
+    }
+
+    this->cg->showImage(drawCircle);
+}
+
+void Calibration::calculateQuads() {
+
+    vector<Point2d> pointQuads = this->cg->getPointsQuad();
+    Point2d center = this->cg->getCenter();
+    double radius = this->cg->getRadius();
+
+    //Calculing the "pattern" quadrants
+    vector<Point2d> normalPoints = vector<Point2d>(4);
+
+    //Clockwise
+    normalPoints.at(0) = Point2d(center.x+radius, center.y);
+    normalPoints.at(1) = Point2d(center.x, center.y-radius);
+    normalPoints.at(2) = Point2d(center.x-radius, center.y);
+    normalPoints.at(3) = Point2d(center.x, center.y+radius);
+
+    //Calculing tangent of triangle formed with lineQuad (1,2,3,4) and normalQuad (1,2,3,4)
+    for(int i = 0; i < (int)normalPoints.size(); i++) {
+        Point2d aux;
+        aux = Point2d(pointQuads.at(i).x, normalPoints.at(i).y);
+        //Distance between pointQuad(i) and aux
+        double oppositeLeg = sqrt(((pointQuads.at(i).x - aux.x)*(pointQuads.at(i).x - aux.x)) + ((pointQuads.at(i).y - aux.y)*(pointQuads.at(i).y - aux.y)));
+        //Distance between center and aux
+        double adjacentLeg = sqrt(((center.x - aux.x)*(center.x - aux.x)) + ((center.y - aux.y)*(center.y - aux.y)));
+        double tangent = oppositeLeg / adjacentLeg;
+        anglesQuad.push_back(atan(tangent) * 180/PI);
+    }
+
+    //Adjusting angles for 360 degrees
+    anglesQuad.at(1)+=270;
+    anglesQuad.at(2)+=180;
+    anglesQuad.at(3)+=90;
+}
+
+void Calibration::writeQuadrantInfos() {
+    this->writerQuadrant->startFile(CALIBRATION_DIR_NAME + QUADRANT_FILE_NAME);
+    this->writerQuadrant->write("quad1_angle"); this->writerQuadrant->write(anglesQuad.at(0));
+    this->writerQuadrant->write("quad2_angle"); this->writerQuadrant->write(anglesQuad.at(1));
+    this->writerQuadrant->write("quad3_angle"); this->writerQuadrant->write(anglesQuad.at(2));
+    this->writerQuadrant->write("quad4_angle"); this->writerQuadrant->write(anglesQuad.at(3));
+    this->writerQuadrant->closeFile();
 }
