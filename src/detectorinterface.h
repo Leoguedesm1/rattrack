@@ -7,7 +7,7 @@
 using namespace std;
 using namespace cv;
 
-class detectorInterface {
+class DetectorInterface {
 
 public:
     virtual Mat detectRat(Mat& frame, Point2d& center, double& radius, int value) = 0;

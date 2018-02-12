@@ -3,30 +3,32 @@
 Video::Video(QString fileName) {
     this->fileName = fileName;
     this->countFrames = 0;
+
+    //Open Video
+    this->captureVideo.open(this->fileName.toAscii().data());
+
+    //Verifying if video has opened
+    if(!this->captureVideo.isOpened())
+        open = false;
+    else{
+        open = true;
+        this->fps = this->captureVideo.get(CAP_PROP_FPS);
+        this->totalFrames = (int) this->captureVideo.get(CAP_PROP_FRAME_COUNT);
+        this->height = this->captureVideo.get(CAP_PROP_FRAME_HEIGHT);
+        this->width = this->captureVideo.get(CAP_PROP_FRAME_WIDTH);
+    }
 }
 
 QString Video::getFileName() {
     return this->fileName;
 }
 
-void Video::setCaptureVideo(VideoCapture captureVideo) {
-    this->captureVideo = captureVideo;
-}
-
 VideoCapture Video::getCaptureVideo() {
     return this->captureVideo;
 }
 
-void Video::setFPS(double fps) {
-    this->fps = fps;
-}
-
 double Video::getFPS() {
     return this->fps;
-}
-
-void Video::setTotalFrames(int totalFrames) {
-    this->totalFrames = totalFrames;
 }
 
 int Video::getTotalFrames() {
@@ -41,18 +43,14 @@ int Video::getCountFrames() {
     return this->countFrames;
 }
 
-void Video::setHeight(int height) {
-    this->height = height;
-}
-
 int Video::getHeight() {
     return this->height;
 }
 
-void Video::setWidth(int width) {
-    this->width = width;
-}
-
 int Video::getWidth() {
     return this->width;
+}
+
+bool Video::isOpen() {
+    return open;
 }

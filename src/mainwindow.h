@@ -1,24 +1,21 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QLineEdit>
-#include <QMessageBox>
-#include <QAction>
-#include <QMenu>
-#include <QSlider>
-#include <QInputDialog>
-#include <QFileDialog>
+//QT Libraries
 #include <QMainWindow>
-#include "video.h"
-#include <vector>
-#include <algorithm>
+#include <QDesktopWidget>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QScrollArea>
+
+//Project Classes
 #include "readerxml.h"
+#include "video.h"
+#include "directorycreator.h"
+#include "writerxml.h"
 
-class Tracker;
-class CalibrationGUI;
-
-using namespace std;
 using namespace cv;
+using namespace std;
 
 namespace Ui {
 class MainWindow;
@@ -29,88 +26,32 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-
     explicit MainWindow(QWidget *parent = 0);
-    static MainWindow* getInstance();
     ~MainWindow();
-    int getValueThreshold();
-    void setValueThreshold(int value);
-    int getMinValueArea();
-    void setMinValueArea(int value);
-    int getMaxValueArea();
-    void setMaxValueArea(int value);
-    int getThicknessThreshold();
-    void setThicknessThreshold(int value);
-    bool getScreen();
-    void setScreen(bool value);
-    void setReader(ReaderInterface* reader);
-    ReaderInterface* getReader();
-
-    void showImage(Mat image);
-    void setStatus(string status);
-    void setButtonPlay(bool status);
-    void unlockStart();
-
-    void closeTest();
+    void startInterface();
+    vector<Video *> getVideos();
+    void resetInterface();
 
 private slots:
-
-    void addVideo(Video *v);
-    void removeVideo();
-    void readDirectoryVideos();
-    void readVideo(Video* v);
-
-    void createButtonTela();
-    void activePerspective();
-    void activeOriginal();
-
-    void on_tbThresh_valueChanged(int value);
-    void on_tbMin_valueChanged(int value);
-    void on_tbMax_valueChanged(int value);
-    void on_tbTrack_valueChanged(int value);
+    void centerWindow();
+    bool existsCalibrationFile();
+    bool existsSettingsFile();
+    void setStatus(string status, int time);
+    void createDefaultSettings();
 
     void on_btFile_clicked();
     void on_btDir_clicked();
-    void on_btIniciar_clicked();
-    void on_btReset_clicked();
-    void on_btPlay_clicked();
-
-    void setFileName();
-    void resetInterface();
-    void inputNameTeste();
+    void on_btCancel_clicked();
+    void on_btStart_clicked();
 
     void on_btCamConfig_clicked();
-    void on_btSnap_clicked();
-
-    void setAdvancedSettings();
-    void on_btAdvancedSettings_clicked();
-
-    bool existsCalibration();
-
-    void on_btCancel1_clicked();
-
-    void on_btCancel2_clicked();
 
 private:
-
-    QString animal;
-    QString teste;
-
-    Ui::MainWindow* ui;
-    static MainWindow* instance;
-    QLineEdit *animalInput;
-    QLineEdit *testeInput;
-    QAction *showPerspective;
-    QAction *showOriginal;
-    QMenu *screenMenu;
-
+    Ui::MainWindow *ui;
+    ReaderInterface *reader;
     vector<Video*> captureVideos;
-    int valueThreshold, minValueArea, maxValueArea, thicknessTrack;
-    bool screen, advancedSettings;
-
-    CalibrationGUI* camCalibration;
-    Tracker* tracker;
-    ReaderInterface* reader;
+    DirectoryCreator *dirCreator;
+    WriterInterface *writer;
 };
 
 #endif // MAINWINDOW_H

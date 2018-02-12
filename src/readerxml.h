@@ -3,7 +3,7 @@
 
 #include "readerinterface.h"
 
-class ReaderXml :  public ReaderInterface {
+class ReaderXML :  public ReaderInterface {
 
 public:
     void readFile(const string& path) {
@@ -19,6 +19,10 @@ public:
     }
 
     void getInFile(const char *name, double *data) {
+        file[name] >> (*data);
+    }
+
+    void getInFile(const char *name, int *data) {
         file[name] >> (*data);
     }
 

@@ -1,19 +1,27 @@
 #ifndef CALIBRATIONGUI_H
 #define CALIBRATIONGUI_H
 
+//QT Libraries
 #include <QWidget>
-#include <cv.h>
 #include <QMouseEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QCheckBox>
+#include <QTableWidget>
+#include <QSignalMapper>
 
-class MainWindow;
+//Project Classes
 class Calibration;
-
-using namespace std;
-using namespace cv;
+#include "video.h"
 
 namespace Ui {
 class CalibrationGUI;
 }
+
+enum {ON, OFF};
 
 class CalibrationGUI : public QWidget
 {
@@ -23,51 +31,59 @@ public:
     explicit CalibrationGUI(QWidget *parent = 0);
     ~CalibrationGUI();
     static CalibrationGUI* getInstance();
-    void showImage(Mat image);
-    void setValueLoadBar(int value);
-    void setTotalValueLoadBar(int value);
-    void setProgressBar(bool status);
-    void setStatus(QString status);
-    void showStatus();
-    void setTool(bool status);
-    void setBtOKRadius(bool status);
-    void errorOcurred(QString error);
-    bool eventFilter(QObject * watched, QEvent * event);
-    Point2d getCenter();
-    double getRadius();
-    vector<Point2d> getPointsQuad();
+    void errorMessage(QString message);
+    void startGUILoadFile();
+    void startGUICalibration(Mat showFrame);
+    void resetProgram();
+    void showImage(Mat showFrame);
 
 private slots:
-    void createCalibrationDirectory();
-    void on_btCancel_clicked();
-    void on_btStart_clicked();
-    void on_btFinish_clicked();
-    void on_btLoadFile_clicked();
-    void on_btCircle_clicked();
-    void on_btCancel2_clicked();
-    void on_btEditCircle_clicked();
-    void on_btMoveCircle_clicked();
-    void on_btDeleteCircle_clicked();
-    void on_btEditQuad_clicked();
-    void on_btAddLine_clicked();
-    void on_btDeleteLine1_clicked();
-    void on_btDeleteLine2_clicked();
-    void on_btDeleteLine3_clicked();
-    void on_btDeleteLine4_clicked();
+
+    void clearWindow();
+    void clearMainLayout();
+    void centerWindow();
+
+    void btFile_clicked();
+    void btStart_clicked();
+    void btCancel_clicked();
+
+    void btInstructions_clicked();
+    void btEditCircle_clicked();
+    void btMoveCircle_clicked();
+    void btDeleteCircle_clicked();
+    void cbQuadrants_clicked(int value);
+    void btAddLine_clicked();
+    void btEditLine_clicked(int index);
+    void btDeleteLine_clicked(int index);
+    void removeLine(int index);
+    void btSave_clicked();
+    void btCancelCalibration_clicked();
+
+    bool eventFilter(QObject * watched, QEvent * event);
 
 private:
     Ui::CalibrationGUI *ui;
     static CalibrationGUI* instanceGUI;
-    MainWindow* mw;
-    Calibration* calibrationCam;
-    double radius;
-    QString fileName;
-    Point2d centerPoint;
-    bool circle, editCircle, moveCircle;
-    int countCircle;
+    Calibration *calibrationCam;
+    Video* cap;
+    QVBoxLayout *mainLayout;
+
+    //Load File GUI
+    QLabel *lb2File;
+    QLineEdit *leHorCorners, *leVerCorners, *leMeasure;
+    QPushButton *btFile, *btStart, *btCancel;
+
+    //Calibration GUI
+    QLabel *lbFrame, *lbQuadrants;
+    QPushButton *btInstructions, *btEditCircle, *btMoveCircle, *btDeleteCircle, *btSave, *btAddLine;
+    QCheckBox *cbQuadrants;
+    QTableWidget *tableLines;
+    vector<QPushButton *> btEditLine, btDeleteLine;
+    QSignalMapper *editLineMapper, *deleteLineMapper;
+
+    int editCircle, moveCircle, quadrants;
+    vector<int> lines;
     QPointF before, current;
-    bool quadrants, line1, line2, line3, line4;
-    vector<Point2d> pointLines;
 };
 
 #endif // CALIBRATIONGUI_H

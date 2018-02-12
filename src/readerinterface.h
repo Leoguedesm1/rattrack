@@ -17,6 +17,7 @@ public:
     virtual void getInFile(const char* name, Mat* data) = 0;
     virtual void getInFile(const char* name, Point2d* data) = 0;
     virtual void getInFile(const char* name, double* data) = 0;
+    virtual void getInFile(const char* name, int* data) = 0;
 
     virtual void closeFile() = 0;
 

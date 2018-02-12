@@ -1,118 +1,77 @@
 #ifndef TRACKER_H
 #define TRACKER_H
 
+//QT Libraries
 #include <QTimer>
-#include <QObject>
-#include <QDir>
 
-//Bibliotecas C
-#include <stdio.h>
-#include <algorithm>
-#include <iostream>
-#include <limits>
-#include <string.h>
-#include <time.h>
-#include <cctype>
-
-//Bibliotecas OPENCV
+//OpenCV Libraries
 #include <highgui.h>
-#include <opencv2/core/core.hpp>
-#include <opencv2/core/utility.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
 #include "opencv2/imgcodecs.hpp"
-#include <opencv2/opencv.hpp>
 
-class MainWindow;
+//Project Classes
+class TrackerGUI;
 #include "video.h"
 #include "threshold.h"
-#include "readerxml.h"
 #include "writercsv.h"
+#include "readerxml.h"
+#include "directorycreator.h"
 
 using namespace std;
 using namespace cv;
 
-const string CALIBRATION_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Calibration";
-const string HOMOGRAPHY_FILE_NAME = "/homography.yml";
-const string TESTES_DIR_NAME = ((string) (QDir::currentPath()).toUtf8().constData()) + "/Testes";
-const string STATISTICS_FILE_NAME = "/statistics.csv";
-const string LEARNING_FILE_NAME = "/learning.csv";
-const string QUADRANT_FILE_NAME = "/quadrants.yml";
-const double INF = std::numeric_limits<double>::infinity();
+enum testMode {NORMAL, FAST};
+enum quadrantsMode {ON, OFF};
 
 class Tracker : public QObject {
 
     Q_OBJECT
 
 public:
-
     Tracker(QObject* parent = 0);
-    Tracker(QObject* parent = 0, QString animal = "", QString teste = "", Video *captureVideo = 0);
-    void resetCaptureVideo();
-    void pauseVideo();
-    void saveSnapshot();
-    Video* getCaptureVideo();
-    void executeTracker();
-    QTimer* getTimer();
-    Mat getPerspectiveFrame();
-    Point2d getCenter();
-    double getRadius();
-    MainWindow* getGUI();
-
-public slots:
-    void removeDirectory();
+    Tracker(QObject* parent = 0, vector<Video *> cap = vector<Video *> (), int mode = 0);
     void setTimer(bool status);
+    QTimer* getTimer();
+    void cancelAnalysis();
+    void restartAnalysis();
+    void saveSnapshot();
+    void removeFromQueue(int index);
 
 private slots:
-
+    void startAnalysis();
+    void finishAnalysis();
     void readHomographyFile();
-    void readQuadrantFile();
-    void createTestDirectory();
-    void createSnapshotDirectory();
-    void startWriteStatistics();
-    void processVideo();
-    void applyingHomography();
-    void getTrack(Mat imageThreshold);
-    void addCordinates(Point2d coord);
+    void readQuadrantsFile();
+    void createStatisticsFile();
+    void proccessVideo();
+    Mat applyHomography(Mat srcFrame);
+    void getTrack(Mat imageThreshold, Mat homographyFrame, Mat srcFrame);
     Mat drawPath();
+    void calcLearningIndex();
     void calcAndSaveStatistics(bool find);
     int calcQuadrant();
-    void endVideo();
-    void calcLearningIndex();
+    double calcAngle();
+    bool isInside(double superiorAngle, double inferiorAngle, double angle);
 
 private:
-
-    detectorInterface* detector;
-    MainWindow* mw;
-    QTimer* tmrTimer;
-
-    QString animal, teste;
-
-    Video* captureVideo;
-
-    int snapshot;
-
-    int countTracking;
-    Mat imageTracking;
-
+    TrackerGUI *interface;
+    testMode mode;
+    vector <Video *> videos;
+    Video * cap;
+    QTimer *timer;
+    quadrantsMode quadrants;
+    ReaderInterface *readerHomography, *readerQuadrants;
+    DetectorInterface *detector;
+    WriterInterface *writerStatistics, *writerLearningIndex;
+    DirectoryCreator *dirCreator;
+    int countTracking, countSnapshot;
+    Mat imageTracking, homographyMatrix;
     Size warpSize;
-    Mat imageTransform;
-    Mat homographyWarp;
-    Point2d center;
-    double pixelRatio;
-    double radius;
+    Point2d center, coordBBfore, coordBefore, coordCurrent;
+    double pixelRatio, radius;
     vector<double> quadrantAngles;
-    bool quadrants;
-
-    Mat srcFrame, perspectiveFrame;
-
-    Point2d coordBBfore, coordBefore, coordCurrent;
     vector<Point2d> coordinates;
-
-    WriterInterface* writerStatistics;
-    WriterInterface* writerLearningIndex;
-
+    int *thresholdValue, *thresholdThick, *minArea, *maxArea, *screen;
 };
 
 #endif // TRACKER_H

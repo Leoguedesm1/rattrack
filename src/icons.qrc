@@ -1,23 +1,24 @@
 <RCC>
     <qresource prefix="/">
+        <file>addLine.png</file>
+        <file>cam_config.png</file>
+        <file>cancel.png</file>
+        <file>circle.png</file>
+        <file>config.png</file>
+        <file>delete.png</file>
+        <file>directory.png</file>
+        <file>edit.png</file>
+        <file>finish.png</file>
+        <file>move.png</file>
+        <file>pause.png</file>
         <file>original.png</file>
         <file>perspective.png</file>
-        <file>pause.png</file>
         <file>play.png</file>
-        <file>reset.png</file>
-        <file>cam_config.png</file>
-        <file>snapshot.png</file>
-        <file>videofile.png</file>
-        <file>directory.png</file>
-        <file>start.png</file>
-        <file>config.png</file>
-        <file>cancel.png</file>
-        <file>finish.png</file>
-        <file>circle.png</file>
-        <file>delete.png</file>
-        <file>edit.png</file>
-        <file>move.png</file>
-        <file>addLine.png</file>
         <file>quadrants.png</file>
+        <file>reset.png</file>
+        <file>snapshot.png</file>
+        <file>start.png</file>
+        <file>videofile.png</file>
+        <file>instructions.png</file>
     </qresource>
 </RCC>

@@ -1,7 +1,7 @@
 #ifndef VIDEO_H
 #define VIDEO_H
 
-#include "opencv2/videoio.hpp"
+#include <opencv2/highgui/highgui.hpp>
 #include <QString>
 
 using namespace std;
@@ -12,18 +12,14 @@ class Video {
 public:
     Video(QString fileName);
     QString getFileName();
-    void setCaptureVideo(VideoCapture captureVideo);
     VideoCapture getCaptureVideo();
-    void setFPS(double fps);
     double getFPS();
-    void setTotalFrames(int totalFrames);
     int getTotalFrames();
     void setCountFrames(int countFrames);
     int getCountFrames();
-    void setHeight(int height);
     int getHeight();
-    void setWidth(int width);
     int getWidth();
+    bool isOpen();
 
 private:
     VideoCapture captureVideo;
@@ -32,6 +28,7 @@ private:
     int countFrames;
     QString fileName;
     int height, width;
+    bool open;
 };
 
 #endif // VIDEO_H

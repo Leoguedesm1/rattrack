@@ -1,87 +1,76 @@
 #include "calibration.h"
 #include "calibrationgui.h"
+#include "filesanddirectoriesconstants.h"
+#include "homographyfileconstants.h"
+#include "quadrantsfileconstants.h"
+
+const double INF = std::numeric_limits<double>::infinity();
+const int L = 100;
+
 #define PI 3.14159265
 
-Calibration::Calibration(QString fileName, int board_w, int board_h, int n_boards, float measure) {
+Calibration::Calibration(Video *cap, int board_w, int board_h, int n_boards, float measure) {
 
-    this->cg = CalibrationGUI::getInstance();
+    this->interface = CalibrationGUI::getInstance();
 
-    this->fileName = fileName;
+    //Creating directory to save calibration infos
+    this->dirCreator = new DirectoryCreator();
+    this->dirCreator->create(CALIBRATION_DIR_NAME);
+
+    this->video = cap;
     this->boardW = board_w;
     this->boardH = board_h;
     this->nBoards = n_boards;
     this->measure = measure;
+    this->imageSize = Size(this->video->getWidth(), this->video->getHeight());
 
     //Getting new corners point with a arbitrary value of pixel size (L variable)
     this->pixelRatio = this->measure / L;
 
-    this->writerCalibration = new WriterXML();
-    this->writerHomography = new WriterXML();
-    this->writerImageInfos = new WriterXML();
-    this->writerQuadrant = new WriterXML();
+    this->center = Point2f(-1,-1);
+    this->radius = 1;
+
+    //Start Calibration
+    if(!findChessboardCalibration()) {
+        this->interface->errorMessage("Nao foram encontrados frames suficientes para calibracao!");
+        this->dirCreator->removeDir(CALIBRATION_DIR_NAME);
+        this->interface->startGUILoadFile();
+    }else{
+        this->calcHomography();
+    }
 }
 
-void Calibration::executeCalibration() {
-
-    //Setting GUI
-    this->cg->showStatus();
-    this->cg->setStatus("Iniciando...");
-
-    //Open Video
-    this->setCaptureVideo();
-
-    //Verifying if the video has opened
-    if(!(this->captureVideo.isOpened()))
-        this->cg->errorOcurred("Impossivel abrir arquivo de video!");
-
-    //Analyzing video to get calibration infos (corners, imagepoints and object points)
-    this->cg->setStatus("Analisando imagens...");
-    Mat imageTest = analyzisVideo();
-
-    //Write a file with calibration images info
-    writeImageInfos();
-
-    /*//Getting Calibration - Optional (we do not use this in program)
-    getCalibration();*/
-
-    //Getting Homography
-    this->cg->setStatus("Calculando homografia...");
-    getHomography(imageTest);
+void Calibration::cancelCalibration() {
+    this->dirCreator->removeDir(CALIBRATION_DIR_NAME);
+    this->interface->resetProgram();
 }
 
-void Calibration::setCaptureVideo() {
-    captureVideo.open(this->fileName.toAscii().data());
-}
+bool Calibration::findChessboardCalibration() {
 
-VideoCapture Calibration::getCaptureVideo() {
-    return this->captureVideo;
-}
+    int foundFrames = 0;
+    Mat src, srcGray;
 
-Mat Calibration::analyzisVideo() {
+    while(foundFrames < this->nBoards) {
 
-    int successes=0;
-    Mat image;
-    Mat gray_image;
-
-    while(successes < this->nBoards) {
-
-        this->captureVideo >> image;
+        this->video->getCaptureVideo() >> src;
 
         //Verifying if cannot make video calibration with this video
-        if(image.empty())
-            this->cg->errorOcurred("Nao foi possivel detectar o numero de imagens necessarias!");
+        if(src.empty())
+            return false;
 
-        cvtColor(image, gray_image, CV_RGB2GRAY);
+        cvtColor(src, srcGray, CV_RGB2GRAY);
 
         //Finding chessboard pattern in image
-        bool found = findChessboardCorners(gray_image, Size(this->boardW, this->boardH), this->corners);
+        bool found = findChessboardCorners(srcGray, Size(this->boardW, this->boardH), this->corners);
 
         //if found then we get all calibration infos
         if(found) {
-            cornerSubPix(gray_image, this->corners, Size(11, 11), Size(-1, -1),
+            cornerSubPix(srcGray, this->corners, Size(11, 11), Size(-1, -1),
                          TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
 
-            drawChessboardCorners(image, Size(this->boardW, this->boardH), this->corners, found);
+            drawChessboardCorners(src, Size(this->boardW, this->boardH), this->corners, found);
+
+            foundFrames++;
 
             if((int)this->corners.size() == this->boardW*this->boardH) {
                 vector< Point2f> v_tImgPT;
@@ -106,77 +95,18 @@ Mat Calibration::analyzisVideo() {
                 this->objectPoints.push_back(v_tObjPT);
             }
         }
-
-        //Name of image that going to be save
-        stringstream img;
-        img << CALIBRATION_DIR_NAME << "/calib" << ++successes << ".bmp";
-        string imageName = img.str();
-
-        //Getting size
-        this->imageSize = Size(image.cols, image.rows);
-
-        //Saving image
-        imwrite(imageName, image);
-
-        //Showing image
-        this->cg->showImage(image);
     }
 
-     return gray_image;
+    srcGray.copyTo(this->homographyImage);
+    return true;
 }
 
-void Calibration::writeImageInfos() {
+void Calibration::calcHomography() {
 
-    this->writerImageInfos->startFile(CALIBRATION_DIR_NAME + INFO_FILE_NAME);
-    this->writerImageInfos->write("image_width"); this->writerImageInfos->write(this->imageSize.width);
-    this->writerImageInfos->write("image_height"); this->writerImageInfos->write(this->imageSize.height);
-    this->writerImageInfos->write("board_width"); this->writerImageInfos->write(this->boardW);
-    this->writerImageInfos->write("board_height"); this->writerImageInfos->write(this->boardH);
-    this->writerImageInfos->write("n_boards"); this->writerImageInfos->write(this->nBoards);
-    this->writerImageInfos->write("square_size"); this->writerImageInfos->write(this->measure);
-    this->writerImageInfos->closeFile();
-}
-
-/*void Calibration::getCalibration() {
-
-    vector< Mat> rvecs, tvecs;
-    Mat intrinsic_Matrix(3, 3, CV_64F);
-    Mat distortion_coeffs(8, 1, CV_64F);
-
-    calibrateCamera(objectPoints, imagePoints, imageSize, intrinsic_Matrix, distortion_coeffs, rvecs, tvecs);
-
-    //SAVING CALIBRATION
-    writeCalibrationInfos(intrinsic_Matrix, distortion_coeffs, rvecs, tvecs);
-}
-
-void Calibration::writeCalibrationInfos(Mat intrinsic_Matrix, Mat distortion_coeffs, vector<Mat> rvecs, vector<Mat> tvecs) {
-
-    this->writerCalibration->startFile(CALIBRATION_DIR_NAME + CALIB_FILE_NAME);
-    this->writerCalibration->write("intrinsic_matrix"); this->writerCalibration->write(intrinsic_Matrix);
-    this->writerCalibration->write("distortion_coeffs"); this->writerCalibration->write(distortion_coeffs);
-    this->writerCalibration->write("rotation_vector"); this->writerCalibration->write(rvecs);
-    this->writerCalibration->write("translation_vector"); this->writerCalibration->write(tvecs);
-    this->writerCalibration->write("object_points"); this->writerCalibration->write(this->objectPoints);
-    this->writerCalibration->write("image_points"); this->writerCalibration->write(this->imagePoints);
-    this->writerCalibration->closeFile();
-}*/
-
-void Calibration::getHomography(Mat imageTest) {
-
-    Point2f point1, point2, point3, point4;
-
-    point1.x = 0;
-    point1.y = 0;
-    point2.x = 0;
-    point2.y = 0;
-    point3.x = 0;
-    point3.y = 0;
-    point4.x = 0;
-    point4.y = 0;
+    Point2f point1(0,0), point2(0,0), point3(0,0), point4(0,0);
 
     //getting approximately the corners points
     for(size_t i = 0; i < this->imagePoints.size(); i++) {
-
         point1.x = point1.x + (this->imagePoints[i][this->boardW-1]).x;
         point1.y = point1.y + (this->imagePoints[i][this->boardW-1]).y;
         point2.x = point2.x + (this->imagePoints[i][0]).x;
@@ -187,14 +117,10 @@ void Calibration::getHomography(Mat imageTest) {
         point4.y = point4.y + (this->imagePoints[i][this->boardW*this->boardH - 1]).y;
     }
 
-    point1.x = point1.x / (float)this->nBoards;
-    point1.y = point1.y / (float)this->nBoards;
-    point2.x = point2.x / (float)this->nBoards;
-    point2.y = point2.y / (float)this->nBoards;
-    point3.x = point3.x / (float)this->nBoards;
-    point3.y = point3.y / (float)this->nBoards;
-    point4.x = point4.x / (float)this->nBoards;
-    point4.y = point4.y / (float)this->nBoards;
+    point1 = Point2f(point1.x / (float) this->nBoards, point1.y / (float)this->nBoards);
+    point2 = Point2f(point2.x / (float) this->nBoards, point2.y / (float)this->nBoards);
+    point3 = Point2f(point3.x / (float) this->nBoards, point3.y / (float)this->nBoards);
+    point4 = Point2f(point4.x / (float) this->nBoards, point4.y / (float)this->nBoards);
 
     srcPoints.push_back(point1);
     srcPoints.push_back(point2);
@@ -221,10 +147,10 @@ void Calibration::getHomography(Mat imageTest) {
 
     double minx = INF, maxx = -INF, miny = INF, maxy = -INF;
     for (int i=0; i < 4; i++){
-        minx = std::min(minx, (double)finalCornerQuad[i].x);
-        miny = std::min(miny, (double)finalCornerQuad[i].y);
-        maxx = std::max(maxx, (double)finalCornerQuad[i].x);
-        maxy = std::max(maxy, (double)finalCornerQuad[i].y);
+        minx = min(minx, (double)finalCornerQuad[i].x);
+        miny = min(miny, (double)finalCornerQuad[i].y);
+        maxx = max(maxx, (double)finalCornerQuad[i].x);
+        maxy = max(maxy, (double)finalCornerQuad[i].y);
     }
 
     int wwidth = maxx - minx;
@@ -236,59 +162,51 @@ void Calibration::getHomography(Mat imageTest) {
     }
 
     //Getting new and correct homography
-    this->homography2 = findHomography(cornerQuad, finalCornerQuad, LMEDS);
+    this->homographyMatrix = findHomography(cornerQuad, finalCornerQuad, LMEDS);
 
-    warpPerspective(imageTest, this->applyHomography, this->homography2, Size(imageSize.width, imageSize.height));
-    cvtColor(this->applyHomography, imageTest, CV_GRAY2RGB);
-    this->cg->showImage(imageTest);
+    warpPerspective(this->homographyImage, this->homographyImage, this->homographyMatrix, Size(imageSize.width, imageSize.height));
+    cvtColor(this->homographyImage, this->homographyImage, CV_GRAY2RGB);
 
-    //Save test image
-    imwrite(CALIBRATION_DIR_NAME + "/homographyApply.bmp", this->applyHomography);
-
-    //Setting GUI
-    this->cg->setTool(true);
-
-    this->cg->setStatus("Para finalizar configure a area de deteccao e os quadrantes com as ferramentas ao lado!");
-
+    //Updating GUI
+    this->interface->startGUICalibration(this->homographyImage);
 }
 
-void Calibration::drawCircle(Point2d center, double radius) {
-    Mat drawCircle;
-    applyHomography.copyTo(drawCircle);
-    cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
+Point2d Calibration::getCenter() {
+    return this->center;
+}
 
-    if(center.x == -1 && center.y == -1) {
-        this->cg->showImage(drawCircle);
-        return;
+void Calibration::setCenter(Point2d point) {
+    center = point;
+}
+
+void Calibration::setRadius(double radius) {
+    this->radius = radius;
+}
+
+double Calibration::getRadius() {
+    return this->radius;
+}
+
+void Calibration::drawCircle() {
+
+    this->homographyImage.copyTo(this->drawCircleMatrix);
+
+    if(center.x != -1 && center.y != -1) {
+        //Draw center
+        circle(this->drawCircleMatrix, Point(center.x, center.y), 1, Scalar(0,0,255), 3);
+        //Draw circle
+        circle(this->drawCircleMatrix, Point(center.x, center.y), radius, Scalar(0,0,255), 3);
     }
 
-
-    //Draw center
-    circle(drawCircle, Point(center.x, center.y), 1, Scalar(0,0,255), 5);
-
-    //Draw circle
-    if(radius != -1)
-        circle(drawCircle, Point(center.x, center.y), radius, Scalar(0,0,255), 3);
-    this->cg->showImage(drawCircle);
+    this->interface->showImage(this->drawCircleMatrix);
 }
 
-void Calibration::writeHomographyInfos() {
-    this->writerHomography->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
-    this->writerHomography->write("src_points"); this->writerHomography->write(srcPoints);
-    this->writerHomography->write("dst_points"); this->writerHomography->write(dstPoints);
-    this->writerHomography->write("homography_matrix"); this->writerHomography->write(homography2);
-    this->writerHomography->write("center_circle"); this->writerHomography->write(this->cg->getCenter());
-    this->writerHomography->write("radius"); this->writerHomography->write(this->cg->getRadius());
-    this->writerHomography->write("pixel_ratio"); this->writerHomography->write(this->pixelRatio);
-    this->writerHomography->closeFile();
-}
-
-Point2d Calibration::findIntersection(Point2d center, Point2d pLine, double radius) {
+Point2d Calibration::findIntersection(Point2d point) {
 
     Point2d point1, point2;
     //Equation of line: y-y1 = m(x-x1) -> line is: (center.x, center.y) to (line.x, line.y)
     //Finding m (tangent of line)
-    double m = (center.y - pLine.y) / (center.x - pLine.x);
+    double m = (center.y - point.y) / (center.x - point.x);
 
     //Taking (x1,y1) = (line.x, line.y) we have the equation like this: y = m*x - m*line.x + line.y
     //Take b = line.y - m*line.x
@@ -322,72 +240,113 @@ Point2d Calibration::findIntersection(Point2d center, Point2d pLine, double radi
 
     //To finish we have to choose the point closest to the clicked, so we calcule the distance and compare
     double diffX, diffY, distance1, distance2;
-    diffX = pLine.x - point1.x;
-    diffY = pLine.y - point1.y;
+    diffX = point.x - point1.x;
+    diffY = point.y - point1.y;
     distance1 = (diffX*diffX) + (diffY*diffY);
-    diffX = pLine.x - point2.x;
-    diffY = pLine.y - point2.y;
+    diffX = point.x - point2.x;
+    diffY = point.y - point2.y;
     distance2 = (diffX*diffX) + (diffY*diffY);
 
     if(distance1 <= distance2) return point1;
     else return point2;
 }
 
-void Calibration::drawLine(vector<Point2d> points, Point2d center, double radius) {
-    Mat drawCircle;
-    applyHomography.copyTo(drawCircle);
-    cvtColor(drawCircle, drawCircle, CV_GRAY2RGB);
-
-    circle(drawCircle, Point(center.x, center.y), 1, Scalar(0,0,255), 5);
-    circle(drawCircle, Point(center.x, center.y), radius, Scalar(0,0,255), 3);
-
-    for(int i = 0; i < (int) points.size(); i++) {
-
-        if(points.at(i).x != -1 && points.at(i).y != -1)
-            line(drawCircle, Point(points.at(i).x, points.at(i).y), Point(center.x, center.y), Scalar(0,0,255), 3);
-    }
-
-    this->cg->showImage(drawCircle);
+void Calibration::addPoint() {
+    lines.push_back(Point2d(-1,-1));
 }
 
-void Calibration::calculateQuads() {
-
-    vector<Point2d> pointQuads = this->cg->getPointsQuad();
-    Point2d center = this->cg->getCenter();
-    double radius = this->cg->getRadius();
-
-    //Calculing the "pattern" quadrants
-    vector<Point2d> normalPoints = vector<Point2d>(4);
-
-    //Clockwise
-    normalPoints.at(0) = Point2d(center.x+radius, center.y);
-    normalPoints.at(1) = Point2d(center.x, center.y-radius);
-    normalPoints.at(2) = Point2d(center.x-radius, center.y);
-    normalPoints.at(3) = Point2d(center.x, center.y+radius);
-
-    //Calculing tangent of triangle formed with lineQuad (1,2,3,4) and normalQuad (1,2,3,4)
-    for(int i = 0; i < (int)normalPoints.size(); i++) {
-        Point2d aux;
-        aux = Point2d(pointQuads.at(i).x, normalPoints.at(i).y);
-        //Distance between pointQuad(i) and aux
-        double oppositeLeg = sqrt(((pointQuads.at(i).x - aux.x)*(pointQuads.at(i).x - aux.x)) + ((pointQuads.at(i).y - aux.y)*(pointQuads.at(i).y - aux.y)));
-        //Distance between center and aux
-        double adjacentLeg = sqrt(((center.x - aux.x)*(center.x - aux.x)) + ((center.y - aux.y)*(center.y - aux.y)));
-        double tangent = oppositeLeg / adjacentLeg;
-        anglesQuad.push_back(atan(tangent) * 180/PI);
-    }
-
-    //Adjusting angles for 360 degrees
-    anglesQuad.at(1)+=270;
-    anglesQuad.at(2)+=180;
-    anglesQuad.at(3)+=90;
+void Calibration::setPoint(Point2d point, int index) {
+    lines.at(index) = this->findIntersection(point);
 }
 
-void Calibration::writeQuadrantInfos() {
-    this->writerQuadrant->startFile(CALIBRATION_DIR_NAME + QUADRANT_FILE_NAME);
-    this->writerQuadrant->write("quad1_angle"); this->writerQuadrant->write(anglesQuad.at(0));
-    this->writerQuadrant->write("quad2_angle"); this->writerQuadrant->write(anglesQuad.at(1));
-    this->writerQuadrant->write("quad3_angle"); this->writerQuadrant->write(anglesQuad.at(2));
-    this->writerQuadrant->write("quad4_angle"); this->writerQuadrant->write(anglesQuad.at(3));
-    this->writerQuadrant->closeFile();
+Point2d Calibration::getPoint(int index) {
+    return lines.at(index);
+}
+
+void Calibration::clearPoints() {
+    lines.clear();
+}
+
+void Calibration::removePoint(int index) {
+    lines.erase(lines.begin() + index);
+}
+
+void Calibration::drawLines() {
+    Mat drawLines;
+    this->drawCircleMatrix.copyTo(drawLines);
+
+    for(int i = 0; i < (int) lines.size(); i++) {
+
+        if(lines.at(i).x != -1 && lines.at(i).y != -1)
+            line(drawLines, Point(lines.at(i).x, lines.at(i).y), Point(center.x, center.y), Scalar(0,0,255), 3);
+    }
+
+    this->interface->showImage(drawLines);
+}
+
+void Calibration::calcAngles() {
+
+    for(int i = 0; i < (int)lines.size(); i++) {
+
+        Point2d point = lines.at(i);
+
+        //Legs
+        double angle;
+        double a = point.x - center.x;
+        double b = point.y - center.y;
+
+        /*Quadrants:
+         * 1st - a > 0 && b < 0
+         * 2nd - a < 0 && b < 0
+         * 3th - a < 0 && b > 0
+         * 4th - a > 0 && b > 0*/
+        if(a > 0 && b < 0) {
+            angle = atan(b/a) * 180/PI * (-1);
+        }else if(a < 0 && b < 0) {
+            angle = (atan(a/b) * 180/PI) + 90;
+        }else if(a < 0 && b > 0) {
+            angle = (atan(b/a) * 180/PI * (-1)) + 180;
+        }else if(a > 0 && b > 0) {
+            angle = (atan(a/b) * 180/PI) + 270;
+        }
+
+        anglesQuad.push_back(angle);
+    }
+
+    //Insertion sort
+    double key;
+    for(int i = 0; i < (int) anglesQuad.size(); i++) {
+        key = anglesQuad.at(i);
+        int j = i-1;
+
+        while(j >= 0 && anglesQuad.at(j) > key) {
+            anglesQuad.at(j+1) = anglesQuad.at(j);
+            j--;
+        }
+
+        anglesQuad.at(j+1) = key;
+    }
+}
+
+void Calibration::writeCalibrationInfos() {
+
+    writer = new WriterXML();
+
+    if(anglesQuad.size() > 0) {
+        writer->startFile(CALIBRATION_DIR_NAME + QUADRANT_FILE_NAME);
+        writer->write(QUAD1_NAME); writer->write(anglesQuad.at(0));
+        writer->write(QUAD2_NAME); writer->write(anglesQuad.at(1));
+        writer->write(QUAD3_NAME); writer->write(anglesQuad.at(2));
+        writer->write(QUAD4_NAME); writer->write(anglesQuad.at(3));
+        writer->closeFile();
+    }
+
+    writer->startFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
+    writer->write(IN_POINTS_NAME); writer->write(srcPoints);
+    writer->write(OUT_POINTS_NAME); writer->write(dstPoints);
+    writer->write(MATRIX_HOMOGRAPHY_NAME); writer->write(homographyMatrix);
+    writer->write(CENTER_CIRCLE_NAME); writer->write(center);
+    writer->write(RADIUS_NAME); writer->write(radius);
+    writer->write(PIXEL_RATIO_NAME); writer->write(pixelRatio);
+    writer->closeFile();
 }

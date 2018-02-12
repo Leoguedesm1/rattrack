@@ -9,7 +9,7 @@ using namespace cv;
 #define WHITE 255
 #define BLACK 0
 
-class Threshold : public detectorInterface {
+class Threshold : public DetectorInterface {
 
 public:
     Mat detectRat(Mat& frame, Point2d& center, double& radius, int value) {

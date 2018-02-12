@@ -1,262 +1,170 @@
 #include "tracker.h"
-#include "mainwindow.h"
+#include "trackergui.h"
+#include "filesanddirectoriesconstants.h"
+#include "homographyfileconstants.h"
+#include "quadrantsfileconstants.h"
+#include "fastmodeguiconstants.h"
+
 #define PI 3.14159265
 
 Tracker::Tracker(QObject *parent) : QObject(parent) { }
 
-Tracker::Tracker(QObject *parent, QString animal, QString teste, Video* captureVideo) : QObject(parent){
-    this->mw = MainWindow::getInstance();
+Tracker::Tracker(QObject *parent, vector<Video *> cap, int mode) : QObject(parent) {
 
-    this->tmrTimer = new QTimer();
-
-    this->animal = animal;
-    this->teste = teste;
-
-    this->captureVideo = captureVideo;
-
-    this->countTracking = 0;
-    this->imageTracking = Mat(captureVideo->getHeight(), captureVideo->getWidth(), CV_32S);
-
-    this->imageTransform = Mat::zeros(captureVideo->getHeight(), captureVideo->getWidth(), CV_8U );
-    this->warpSize = Size(captureVideo->getWidth(), captureVideo->getHeight());
-
-    coordBBfore = coordBefore = coordCurrent = Point2d(0,0);
-
-    this->detector = new Threshold();
-
-    this->writerStatistics = new WriterCSV();
+    //Initializing objects
+    this->interface = TrackerGUI::getInstance();
+    this->videos = cap;
     this->writerLearningIndex = new WriterCSV();
 
-    quadrants = false;
+    //Settings
+    this->thresholdValue = this->interface->getThreshValue();
+    this->thresholdThick = this->interface->getThreshThick();
+    this->minArea = this->interface->getMinArea();
+    this->maxArea = this->interface->getMaxArea();
+    this->screen = this->interface->getScreenMode();
 
-    this->snapshot = 0;
+    //Reading configuration files
+    this->readHomographyFile();
+    this->readQuadrantsFile();
+
+    //Creating main Directory for save results
+    this->dirCreator = new DirectoryCreator();
+    dirCreator->create(TESTES_DIR_NAME);
+
+    if(mode == FAST)
+        this->mode = FAST;
+    else
+        this->mode = NORMAL;
+
+    this->startAnalysis();
 }
 
-Mat Tracker::getPerspectiveFrame() {
-    return this->perspectiveFrame;
-}
+void Tracker::startAnalysis() {
 
-Point2d Tracker::getCenter() {
-    return this->center;
-}
+    this->cap = this->videos.at(this->interface->getIndexVideo());
+    this->cap->getCaptureVideo().set(CAP_PROP_POS_MSEC, 00);
 
-double Tracker::getRadius() {
-    return this->radius;
-}
-
-MainWindow* Tracker::getGUI() {
-    return this->mw;
-}
-
-void Tracker::resetCaptureVideo() {
-    this->countTracking = 0;
-    this->imageTracking = Scalar(0);
-    this->captureVideo->getCaptureVideo().set(CAP_PROP_POS_MSEC, 00);
-    this->captureVideo->setCountFrames(0);
-    string name = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + STATISTICS_FILE_NAME;
-    if(remove(name.c_str()) == 0)
-        this->mw->setStatus("Reiniciando teste!");
-    this->writerStatistics = new WriterCSV();
-    startWriteStatistics();
-}
-
-void Tracker::pauseVideo() {
-
-    //If video is playing then stop
-    if(this->tmrTimer->isActive()) {
-        this->setTimer(false);
-
-        //Setting GUI
-        this->mw->setButtonPlay(true);
-
-        //If video has stop then play
-    }else{
-        this->setTimer(true);
-
-        //Setting GUI
-        this->mw->setButtonPlay(false);
+    //Update Interface
+    if(this->mode == NORMAL)
+        this->interface->setFilename(this->cap->getFileName().section("/", -1, -1));
+    else{
+        this->interface->setProgressBar();
+        this->interface->setStatus(QString::fromStdString(FAST_MODE_GUI_STATUS_EVALUATING));
     }
 
+    //Initializing tracking variables
+    this->detector = new Threshold();
+    this->countTracking = this->countSnapshot = 0;
+    this->warpSize = Size(this->cap->getWidth(), this->cap->getHeight());
+    this->imageTracking = Mat::zeros(this->cap->getHeight(), this->cap->getWidth(), CV_32S);
+    coordBBfore = coordBefore = coordCurrent = Point2d(0,0);
 
-}
+    //Creating analsis directory for save results
+    dirCreator->create(TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data());
 
-void Tracker::saveSnapshot() {
+    //Start Creation Statistics File
+    this->createStatisticsFile();
 
-    //Creating directories
-    this->createTestDirectory();
-    this->createSnapshotDirectory();
-
-    //Creating image name
-    stringstream filename;
-    filename << TESTES_DIR_NAME + "/" + animal.toAscii().data() + "/Snapshots" << "/snapshot" << this->snapshot++ << "_teste_" << this->teste.toAscii().data() << ".bmp";
-    string save = filename.str();
-
-    //Saving image
-    if(this->mw->getScreen()) imwrite(save, this->srcFrame);
-    else imwrite(save, this->perspectiveFrame);
-}
-
-Video* Tracker::getCaptureVideo() {
-    return this->captureVideo;
-}
-
-QTimer* Tracker::getTimer() {
-    return this->tmrTimer;
-}
-
-void Tracker::executeTracker() {
-
-    //Creating a directory for saving infos test
-    createTestDirectory();
-
-
-    //Starting write the statistics file
-    startWriteStatistics();
-
-    //Reading homography configuration
-    readHomographyFile();
-
-    //Reading quadrant configuration
-    readQuadrantFile();
-
-    //Starting tracking process
-    this->setTimer(true);
-    
-    waitKey(0); // key press to close window
+    //Initializing analysis
+    timer = new QTimer();
+    QObject::connect(timer, SIGNAL(timeout()), this, SLOT(proccessVideo()));
+    timer->start();
 }
 
 void Tracker::readHomographyFile() {
-
-    //Reading Homography File
-    if(this->mw->getReader() == NULL)
-        this->mw->setReader(new ReaderXml());
-
-    (this->mw->getReader())->readFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
-
-    string name = "homography_matrix";
-    (this->mw->getReader())->getInFile(name.c_str(), &homographyWarp);
-    name = "center_circle";
-    (this->mw->getReader())->getInFile(name.c_str(), &center);
-    name = "radius";
-    (this->mw->getReader())->getInFile(name.c_str(), &radius);
-    name = "pixel_ratio";
-    (this->mw->getReader())->getInFile(name.c_str(), &pixelRatio);
-
-    //Closing file after read
-    (this->mw->getReader())->closeFile();
+    this->readerHomography = new ReaderXML();
+    this->readerHomography->readFile(CALIBRATION_DIR_NAME + HOMOGRAPHY_FILE_NAME);
+    this->readerHomography->getInFile(MATRIX_HOMOGRAPHY_NAME.c_str(), &homographyMatrix);
+    this->readerHomography->getInFile(CENTER_CIRCLE_NAME.c_str(), &center);
+    this->readerHomography->getInFile(RADIUS_NAME.c_str(), &radius);
+    this->readerHomography->getInFile(PIXEL_RATIO_NAME.c_str(), &pixelRatio);
+    this->readerHomography->closeFile();
 }
 
-void Tracker::readQuadrantFile() {
-    if(this->mw->getReader() == NULL)
-        this->mw->setReader(new ReaderXml());
-
-    if(this->mw->getReader()->exists(CALIBRATION_DIR_NAME + QUADRANT_FILE_NAME)) {
+void Tracker::readQuadrantsFile() {
+    this->readerQuadrants = new ReaderXML();
+    if(this->readerQuadrants->exists(CALIBRATION_DIR_NAME + QUADRANT_FILE_NAME)) {
         quadrantAngles = vector<double> (4);
-        quadrants = true;
+        quadrants = ON;
 
-        string name = "quad1_angle";
-        this->mw->getReader()->getInFile(name.c_str(), &quadrantAngles.at(0));
-        name = "quad2_angle";
-        this->mw->getReader()->getInFile(name.c_str(), &quadrantAngles.at(1));
-        name = "quad3_angle";
-        this->mw->getReader()->getInFile(name.c_str(), &quadrantAngles.at(2));
-        name = "quad4_angle";
-        this->mw->getReader()->getInFile(name.c_str(), &quadrantAngles.at(3));
-    }
+        this->readerQuadrants->getInFile(QUAD1_NAME.c_str(), &quadrantAngles.at(0));
+        this->readerQuadrants->getInFile(QUAD2_NAME.c_str(), &quadrantAngles.at(1));
+        this->readerQuadrants->getInFile(QUAD3_NAME.c_str(), &quadrantAngles.at(2));
+        this->readerQuadrants->getInFile(QUAD4_NAME.c_str(), &quadrantAngles.at(3));
+    }else
+        quadrants = OFF;
 }
 
-void Tracker::createTestDirectory() {
+void Tracker::createStatisticsFile() {
 
-    //Creating main directory for tests
-    QDir dir(QString::fromStdString(TESTES_DIR_NAME));
-    if(!dir.exists())
-        QDir().mkdir(dir.absolutePath());
-
-    //Creating animal directory
-    QDir dir1(QString::fromStdString(TESTES_DIR_NAME) + "/" + this->animal);
-    if(!dir1.exists())
-        QDir().mkdir(dir1.absolutePath());
-}
-
-void Tracker::createSnapshotDirectory() {
-    QDir dir2(QString::fromStdString(TESTES_DIR_NAME) + "/" + this->animal + "/Snapshots");
-    if(!dir2.exists())
-        QDir().mkdir(dir2.absolutePath());
-}
-
-void Tracker::startWriteStatistics() {
+    this->writerStatistics = new WriterCSV();
 
     //Getting path name
-    const string name1= TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + STATISTICS_FILE_NAME;
+    const string name1 = TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data() + STATISTICS_FILE_NAME;
 
     //Open file to start write
     this->writerStatistics->startFile(name1.c_str());
 
     //Writing first line
     string data;
-    if(quadrants)
+    if(quadrants == ON)
         data = "frame, tempo (s), metros (cm), velocidade (cm/s), aceleracao (cm2/s), quadrante\n";
     else
         data = "frame, tempo (s), metros (cm), velocidade (cm/s), aceleracao (cm2/s)\n";
     this->writerStatistics->write(data);
 }
 
-void Tracker::processVideo() {
+void Tracker::proccessVideo() {
 
-    this->captureVideo->getCaptureVideo() >> this->srcFrame;
+    Mat srcFrame;
+    this->cap->getCaptureVideo() >> srcFrame;
 
-    //If captureVideo is empty so closed test
-    if((this->srcFrame).empty()) {
-        this->setTimer(false);
-        this->writerStatistics->closeFile();
-        this->endVideo();
-
-        //If not so analysis the video
-    }else{
+    if(!(srcFrame.empty())) {
 
         //Getting the correct image applying homography
-        applyingHomography();
+        Mat homographyFrame = applyHomography(srcFrame);
 
         //Transforming image to detect the rat
-        Mat imageThreshold = detector->detectRat(this->perspectiveFrame, this->center, this->radius, this->mw->getValueThreshold());
+        Mat imageThreshold = detector->detectRat(homographyFrame, this->center, this->radius, (*thresholdValue));
 
         //Making imageTrack
-        getTrack(imageThreshold);
+        getTrack(imageThreshold, homographyFrame, srcFrame);
 
-        //Waits to display frame
-        waitKey(20);
-    }
+        //Releasing space
+        srcFrame.release();
+        homographyFrame.release();
+        imageThreshold.release();
+
+    }else
+        this->finishAnalysis();
 }
 
-void Tracker::applyingHomography() {
+Mat Tracker::applyHomography(Mat srcFrame) {
 
     //Getting srcFrame in gray scayle
     Mat srcGray;
-    if(this->srcFrame.channels() != 1)
+    if(srcFrame.channels() != 1)
         cvtColor(srcFrame, srcGray, cv::COLOR_RGB2GRAY);
     else
-        this->srcFrame.copyTo(srcGray);
+        srcFrame.copyTo(srcGray);
 
     //Applying Homography matrix to get the perspective image
-    warpPerspective(srcGray, this->imageTransform, this->homographyWarp, this->warpSize);
+    Mat homographyFrame;
+    warpPerspective(srcGray, homographyFrame, this->homographyMatrix, this->warpSize);
 
-    //Copying transformImage
-    this->perspectiveFrame = Mat::zeros(this->srcFrame.rows, this->srcFrame.cols, CV_8U);
-    this->imageTransform.copyTo(this->perspectiveFrame);
+    //Releasing space
+    srcGray.release();
 
+    return homographyFrame;
 }
 
-void Tracker::addCordinates(Point2d coord) {
-    this->coordinates.push_back(coord);
-
-}
-
-void Tracker::getTrack(Mat imageThreshold) {
+void Tracker::getTrack(Mat imageThreshold, Mat homographyFrame, Mat srcFrame) {
 
     unsigned int i;
+    stringstream status1;
 
     //Getting the countours of image, countours = rat
-    cvtColor(this->perspectiveFrame, this->perspectiveFrame, CV_GRAY2RGB);
+    cvtColor(homographyFrame, homographyFrame, CV_GRAY2RGB);
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
     findContours(imageThreshold, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -265,43 +173,27 @@ void Tracker::getTrack(Mat imageThreshold) {
     float area;
     for(i = 0; i < contours.size(); i++ ){
         area = contourArea(contours[i], false);
-        if (area >= this->mw->getMinValueArea() && area <= this->mw->getMaxValueArea()) {
+        if (area >= (*minArea) && area <= (*maxArea)) {
             break;
         }
     }
 
     //Counting frames
-    this->captureVideo->setCountFrames(this->captureVideo->getCountFrames()+1);
+    this->cap->setCountFrames(this->cap->getCountFrames()+1);
 
     //If do not detected the rat
     if (i >= contours.size() || area == 0) {
 
         //Updating coordinates
         this->coordCurrent = this->coordBefore;
-        this->addCordinates(this->coordCurrent);
+        this->coordinates.push_back(this->coordCurrent);
 
         //Calculating the statistics about rat and saving in statisticsFile
         this->calcAndSaveStatistics(false);
 
         //Setting Status of find rat
-        stringstream status1;
         status1 << "Rato nao encontrado! Ultimas coordenadas: (" << this->coordCurrent.x << ", " <<
                    this->coordCurrent.y << ").";
-        string status = status1.str();
-        this->mw->setStatus(status);
-
-        //Drawing the path of rat in perspectiveFrame
-        Mat path = drawPath();
-        addWeighted(this->perspectiveFrame, 1, path, 1, 0.0, this->perspectiveFrame);
-
-        //Getting the original cam image applying inverse homography matrix
-        warpPerspective(this->perspectiveFrame, this->srcFrame, this->homographyWarp.inv(), this->srcFrame.size());
-        //warpPerspective(p, p, H2_warp.inv(), p.size());
-
-        //Showing the image
-        if(this->mw->getScreen()) this->mw->showImage(this->srcFrame);
-        else this->mw->showImage(this->perspectiveFrame);
-        return;
 
         //If detected rat
     }else{
@@ -318,39 +210,59 @@ void Tracker::getTrack(Mat imageThreshold) {
         this->coordBBfore = this->coordBefore;
         this->coordBefore = this->coordCurrent;
         this->coordCurrent = mc[i];
-        this->addCordinates(this->coordCurrent);
+        this->coordinates.push_back(this->coordCurrent);
 
         //Calculating the statistics about rat and saving in statisticsFile
         this->calcAndSaveStatistics(true);
 
         //Setting Status of find rat
-        stringstream status1;
         status1 << "Rato encontrado! Coordenadas: (" << this->coordCurrent.x << ", " << this->coordCurrent.y << ").";
-        string status = status1.str();
-        this->mw->setStatus(status);
 
-        //Drawing path of rat
+        //Updating path's rat
         this->imageTracking.at<int>(this->coordCurrent.y, this->coordCurrent.x) = this->countTracking;
         this->countTracking++;
-        Mat pathRat = drawPath();
 
         //Drawing countours (=rat) and the center mass in perspectiveFrame
-        drawContours(this->perspectiveFrame, contours, i, Scalar(255,255,0), 1, 8, hierarchy, 0, Point());
-        circle(this->perspectiveFrame, this->coordCurrent, 2.5, Scalar(0,255,0), -1);
+        drawContours(homographyFrame, contours, i, Scalar(255,255,0), 1, 8, hierarchy, 0, Point());
+        circle(homographyFrame, this->coordCurrent, 2.5, Scalar(0,255,0), -1);
 
-        //Add path in perpectiveFrame
-        addWeighted(this->perspectiveFrame, 1, pathRat, 1, 0.0, this->perspectiveFrame);
-
-        //Getting original cam image applying inverse homography matrix
-        warpPerspective(this->perspectiveFrame, this->srcFrame, this->homographyWarp.inv(), this->srcFrame.size());
-
-        //Showing image in screen
-        if(this->mw->getScreen()) this->mw->showImage(this->srcFrame);
-        else this->mw->showImage(this->perspectiveFrame);
+        //Releasing space
+        mu.clear();
+        mc.clear();
     }
+
+    //Drawing the path of rat in perspectiveFrame
+    Mat path = drawPath();
+    addWeighted(homographyFrame, 1, path, 1, 0.0, homographyFrame);
+
+    //Getting the original cam image applying inverse homography matrix
+    warpPerspective(homographyFrame, srcFrame, this->homographyMatrix.inv(), srcFrame.size());
+
+    //Updating GUI
+    if(this->mode == NORMAL) {
+        this->interface->setStatus(QString::fromStdString(status1.str()));
+        if((*screen) == CAMERA) {
+            cvtColor(srcFrame, srcFrame, CV_BGR2RGB);
+            resize(srcFrame, srcFrame, Size(704, 480));
+            this->interface->showImage(srcFrame);
+        }else{
+            cvtColor(homographyFrame, homographyFrame, CV_BGR2RGB);
+            resize(homographyFrame, homographyFrame, Size(704, 480));
+            this->interface->showImage(homographyFrame);
+        }
+    }else{
+        double value = (100.0 / this->cap->getTotalFrames()) * this->cap->getCountFrames();
+        this->interface->updateProgressBar((int)value);
+    }
+
+    //Releasing space
+    contours.clear();
+    hierarchy.clear();
+    path.release();
 }
 
 Mat Tracker::drawPath() {
+
     Mat path = Mat::zeros(this->imageTracking.rows, this->imageTracking.cols, CV_8UC3);
     Vec3b c1 = Vec3b(255,0,0);
     Vec3b c2 = Vec3b(0,255,0);
@@ -360,13 +272,11 @@ Mat Tracker::drawPath() {
             if(this->imageTracking.at<int>(i, j) != BLACK) {
                 float r = this->imageTracking.at<int>(i,j)/( (float) this->countTracking);
                 Vec3b c = (r*c1 + (1-r)*c2);
-                if(this->mw->getThicknessThreshold() == 0)
+                if((*thresholdThick) == 0)
                     path.at<Vec3b>(i, j) = c;
                 else {
-                    Point a;
-                    a.x = j;
-                    a.y = i;
-                    circle( path, a, this->mw->getThicknessThreshold(), c, -1);
+                    Point a(j, i);
+                    circle( path, a, (*thresholdThick), c, -1);
                 }
             }
         }
@@ -375,18 +285,62 @@ Mat Tracker::drawPath() {
     return path;
 }
 
+void Tracker::calcLearningIndex() {
+
+    //Getting path name
+    const string name1 = TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data() + LEARNING_FILE_NAME;
+
+    //Open file to start write
+    this->writerLearningIndex->startFile(name1.c_str());
+
+    //Writing first line
+    string data = "frame, tempo, distancia\n";
+    this->writerLearningIndex->write(data);
+
+    double time = 1/this->cap->getFPS();
+    Point2d finalPoint = this->coordinates[this->coordinates.size()-1];
+    double media = 0;
+
+    for(int i = 0; i < (int) this->coordinates.size()-1; i++) {
+
+        Point2d point = this->coordinates[i];
+        double xDiff = finalPoint.x - point.x;
+        double yDiff = finalPoint.y - point.y;
+        double meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*this->pixelRatio;
+        media = media + (meters/30);
+
+        //Writing infos
+        stringstream data;
+        data << i << ", " << time << ", " << meters << "\n";
+        this->writerLearningIndex->write(data.str());
+
+        //Making media every 1sec
+        if(i != 0 && (i+1)%30 == 0) {
+
+            //Writing info
+            stringstream data1;
+            data1 << "media, 1sec, " << media << "\n";
+            this->writerLearningIndex->write(data1.str());
+            media = 0;
+        }
+    }
+
+    this->writerLearningIndex->closeFile();
+}
+
 void Tracker::calcAndSaveStatistics(bool find) {
 
+
     //Calculing time per frame
-    double time = 1.0/this->captureVideo->getFPS();
+    double time = 1.0/this->cap->getFPS();
     double vel, meters, acel;
 
     //Saving initial statistics
-    if(this->captureVideo->getCountFrames() == 1 || !find)
+    if(this->cap->getCountFrames() == 1 || !find)
         meters = vel = acel = 0;
 
     //Saving first statistics
-    else if(this->captureVideo->getCountFrames() == 2) {
+    else if(this->cap->getCountFrames() == 2) {
 
         //Metters
         double xDiff = this->coordBefore.x - this->coordCurrent.x;
@@ -422,190 +376,181 @@ void Tracker::calcAndSaveStatistics(bool find) {
 
     //Write in statistcs file
     stringstream data;
-    if(quadrants)
-        data << this->getCaptureVideo()->getCountFrames() << ", " << time << ", " << meters << ", " << vel << ", " << acel << ", " << calcQuadrant() << "\n";
+    if(quadrants == ON)
+        data << this->cap->getCountFrames() << ", " << time << ", " << meters << ", " << vel << ", " << acel << ", " << calcQuadrant() << "\n";
     else
-        data << this->getCaptureVideo()->getCountFrames() << ", " << time << ", " << meters << ", " << vel << ", " << acel << "\n";
+        data << this->cap->getCountFrames() << ", " << time << ", " << meters << ", " << vel << ", " << acel << "\n";
     this->writerStatistics->write(data.str());
-}
 
-void Tracker::endVideo() {
-
-    //Creating test rat directory
-    this->createTestDirectory();
-
-    //Saving Path image
-    string save;
-
-    //Setting status
-    this->mw->setStatus("Salvando Caminho...");
-
-    //Setting image name
-    stringstream filename;
-    filename << TESTES_DIR_NAME + "/" + this->animal.toAscii().data() << "/caminho_teste_" << teste.toAscii().data() << ".bmp";
-    save = filename.str();
-
-    //Saving image
-    imwrite(save, imageTracking);
-
-    //Setting status
-    this->mw->setStatus("Salvo!");
-
-    //Calculing learning index
-    this->calcLearningIndex();
-
-    //Ending GUI
-    this->mw->closeTest();
-}
-
-void Tracker::calcLearningIndex() {
-
-    //Getting path name
-    const string name1 = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + LEARNING_FILE_NAME;
-
-    //Open file to start write
-    this->writerLearningIndex->startFile(name1.c_str());
-
-    //Writing first line
-    string data = "frame, tempo, distancia\n";
-    this->writerLearningIndex->write(data);
-
-    double time = 1/this->getCaptureVideo()->getFPS();
-    Point2d finalPoint = this->coordinates[this->coordinates.size()-1];
-    double media = 0;
-
-    for(int i = 0; i < (int) this->coordinates.size()-1; i++) {
-
-        Point2d point = this->coordinates[i];
-        double xDiff = finalPoint.x - point.x;
-        double yDiff = finalPoint.y - point.y;
-        double meters = (sqrt((xDiff*xDiff) + (yDiff*yDiff)))*this->pixelRatio;
-        media = media + (meters/30);
-
-        //Writing infos
-        stringstream data;
-        data << i << ", " << time << ", " << meters << "\n";
-        this->writerLearningIndex->write(data.str());
-
-        //Making media every 1sec
-        if(i != 0 && (i+1)%30 == 0) {
-
-            //Writing info
-            stringstream data1;
-            data1 << "media, 1sec, " << media << "\n";
-            this->writerLearningIndex->write(data1.str());
-            media = 0;
-        }
-    }
-
-    this->writerLearningIndex->closeFile();
 }
 
 int Tracker::calcQuadrant() {
 
-    //Getting extreme points of the circle
-    vector<Point2d> ePoints = vector<Point2d> (4);
-    ePoints.at(0) = (Point2d(center.x+radius, center.y));
-    ePoints.at(3) = (Point2d(center.x, center.y-radius));
-    ePoints.at(2) = (Point2d(center.x-radius, center.y));
-    ePoints.at(1) = (Point2d(center.x, center.y+radius));
+    double angle = calcAngle();
 
-    //Finding in which quadrant the rat finds himself, only comparing the distance about extreme points
-    double minY = INF, minX = INF; int indexMinY = - 1, indexMinX = -1;
-    for(int i = 0; i < (int)ePoints.size(); i++) {
-        double diffX = ePoints.at(i).x - coordCurrent.x;
-        double diffY = ePoints.at(i).y - coordCurrent.y;
-        double dist = sqrt((diffX*diffX) + (diffY*diffY));
+    //1st Quadrant
+    if(isInside(quadrantAngles.at(0), quadrantAngles.at(3), angle))
+        return 1;
 
-        if(i == 1 || i == 3) {
-            if(dist < minY) { minY = dist; indexMinY = i; }
-        }else{
-            if(dist < minX) { minX = dist; indexMinX = i; }
-        }
-    }
+    //2nd Quadrant
+    if(isInside(quadrantAngles.at(1), quadrantAngles.at(0), angle))
+        return 2;
 
-    //Calculing the angle which the rat find himself
-    Point2d aux;
-    double oppositeLeg, adjacentLeg, tangent, angle;
-    //First Quadrant
-    if(indexMinX == 0 && indexMinY == 3) {
-        aux = Point2d(coordCurrent.x, ePoints.at(0).y);
-        oppositeLeg = sqrt(((coordCurrent.x-aux.x)*(coordCurrent.x-aux.x)) + ((coordCurrent.y-aux.y)*(coordCurrent.y-aux.y)));
-        adjacentLeg = sqrt(((center.x-aux.x)*(center.x-aux.x)) + ((center.y-aux.y)*(center.y-aux.y)));
-        tangent = oppositeLeg / adjacentLeg;
-        angle = atan(tangent) * 180/PI;
-    }
+    //3th Quadrant
+    if(isInside(quadrantAngles.at(2), quadrantAngles.at(1), angle))
+        return 3;
 
-    //Second Quadrant
-    if(indexMinX == 0 && indexMinY == 1) {
-        aux = Point2d(coordCurrent.x, ePoints.at(1).y);
-        oppositeLeg = sqrt(((coordCurrent.x-aux.x)*(coordCurrent.x-aux.x)) + ((coordCurrent.y-aux.y)*(coordCurrent.y-aux.y)));
-        adjacentLeg = sqrt(((center.x-aux.x)*(center.x-aux.x)) + ((center.y-aux.y)*(center.y-aux.y)));
-        tangent = oppositeLeg / adjacentLeg;
-        angle = (atan(tangent) * 180/PI) + 270;
-    }
+    //4th Quadrant
+    if(isInside(quadrantAngles.at(3), quadrantAngles.at(2), angle))
+        return 4;
 
-    //Third Quadrant
-    if(indexMinX == 2 && indexMinY == 1) {
-        aux = Point2d(coordCurrent.x, ePoints.at(2).y);
-        oppositeLeg = sqrt(((coordCurrent.x-aux.x)*(coordCurrent.x-aux.x)) + ((coordCurrent.y-aux.y)*(coordCurrent.y-aux.y)));
-        adjacentLeg = sqrt(((center.x-aux.x)*(center.x-aux.x)) + ((center.y-aux.y)*(center.y-aux.y)));
-        tangent = oppositeLeg / adjacentLeg;
-        angle = (atan(tangent) * 180/PI) + 180;
-    }
-
-    //Fourth Quadrant
-    if(indexMinX == 2 && indexMinY == 3) {
-        aux = Point2d(coordCurrent.x, ePoints.at(3).y);
-        oppositeLeg = sqrt(((coordCurrent.x-aux.x)*(coordCurrent.x-aux.x)) + ((coordCurrent.y-aux.y)*(coordCurrent.y-aux.y)));
-        adjacentLeg = sqrt(((center.x-aux.x)*(center.x-aux.x)) + ((center.y-aux.y)*(center.y-aux.y)));
-        tangent = oppositeLeg / adjacentLeg;
-        angle = (atan(tangent) * 180/PI) + 90;
-    }
-
-    //Comparing with quadrant configuration
-    int quadrant = 0;
-    if(angle <= quadrantAngles.at(0) || angle >= quadrantAngles.at(1)) quadrant = 1;
-    if(angle <= quadrantAngles.at(1) && angle >= quadrantAngles.at(2)) quadrant = 2;
-    if(angle <= quadrantAngles.at(2) && angle >= quadrantAngles.at(3)) quadrant = 3;
-    if(angle <= quadrantAngles.at(3) && angle >= quadrantAngles.at(0)) quadrant = 4;
-
-    return quadrant;
+    return 0;
 }
 
-void Tracker::removeDirectory() {
-    string name;
+double Tracker::calcAngle() {
 
-    this->mw->setStatus("Canceling test...");
-    //Statistcs file
-    name = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + STATISTICS_FILE_NAME;
-    if(remove(name.c_str()) == 0) this->mw->setStatus("Removing statistics file");
+    //Rat position = coordCurrent
 
-    //Learning file
-    name = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + LEARNING_FILE_NAME;
-    if(remove(name.c_str()) == 0) this->mw->setStatus("Removing learning file");
+    //Legs
+    double a = coordCurrent.x - center.x;
+    double b = coordCurrent.y - center.y;
 
-    //Path image
-    name = TESTES_DIR_NAME + "/" + this->animal.toAscii().data() + "/caminho_teste_" + teste.toAscii().data() + ".bmp";
-    if(remove(name.c_str()) == 0) this->mw->setStatus("Removing path iamge");
-
-    //Snapshots
-    for(int i = 0; i < this->snapshot; i++) {
-        ostringstream name1;
-        name1 << TESTES_DIR_NAME << "/" << animal.toAscii().data() << "/Snapshots" << "/snapshot" << i << "_teste_" << this->teste.toAscii().data() << ".bmp";
-        if(remove(name1.str().c_str()) == 0) this->mw->setStatus("Removing Snapshots");
+    /*Quadrants:
+     * 1st - a > 0 && b < 0
+     * 2nd - a < 0 && b < 0
+     * 3th - a < 0 && b > 0
+     * 4th - a > 0 && b > 0*/
+    if(a > 0 && b < 0) {
+        return (atan(b/a) * 180/PI * (-1));
+    }else if(a < 0 && b < 0) {
+        return ((atan(a/b) * 180/PI) + 90);
+    }else if(a < 0 && b > 0) {
+        return ((atan(b/a) * 180/PI * (-1)) + 180);
+    }else if(a > 0 && b > 0) {
+        return ((atan(a/b) * 180/PI) + 270);
     }
-    name = TESTES_DIR_NAME + "/" + animal.toAscii().data() + "/Snapshots";
-    if(remove(name.c_str()) == 0) this->mw->setStatus("Removing Snapshot directory");
 
-    //Main directory
-    name = TESTES_DIR_NAME + "/" + animal.toAscii().data();
-    if(remove(name.c_str()) == 0) this->mw->setStatus("Teste Cancelado");
+    return 0;
+}
+
+bool Tracker::isInside(double superiorAngle, double inferiorAngle, double angle) {
+    if(inferiorAngle < superiorAngle) {
+        if(angle > inferiorAngle && angle < superiorAngle)
+            return true;
+    }else{
+        if((angle > inferiorAngle && angle < 360) || angle < superiorAngle)
+            return true;
+    }
+    return false;
+}
+
+void Tracker::finishAnalysis() {
+    //Stopping QTimer
+    timer->stop();
+
+    //Finishing statistcs file
+    this->writerStatistics->closeFile();
+
+    //Saving path image
+    stringstream filename;
+    filename << TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data() << "/caminho.bmp";
+    imwrite(filename.str(), this->imageTracking);
+
+    //Calculing Learning Index
+    this->calcLearningIndex();
+
+    //Saving settings
+    this->interface->saveSettings();
+
+    //Releasing space
+    this->detector = NULL;
+    delete this->timer;
+    this->imageTracking.release();
+    this->coordinates.clear();
+
+    //Changing status and showing results
+    if(this->mode == FAST) {
+        this->interface->setStatus(QString::fromStdString(FAST_MODE_GUI_STATUS_FINISH));
+        this->interface->setResults(TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data());
+        this->interface->blockCancelButton();
+    }
+
+    //Verifying analysis queue
+    this->interface->setIndexVideo(this->interface->getIndexVideo() + 1);
+    if(this->interface->getIndexVideo() < (int) this->videos.size())
+        this->startAnalysis();
+    else {
+        this->interface->restartProgram();
+        this->interface = NULL;
+    }
+}
+
+void Tracker::cancelAnalysis() {
+    this->timer->stop();
+
+    this->writerStatistics->closeFile();
+
+    bool removeDir = this->dirCreator->removeDir(TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data());
+    if(!removeDir) cout << "erro ao remover diretorio." << endl;
+
+    //Releasing space
+    this->detector = NULL;
+    delete this->timer;
+    this->imageTracking.release();
+    this->coordinates.clear();
+
+    //Deleting analysis from queue
+    removeFromQueue(this->interface->getIndexVideo());
+
+    //Verifying analysis queue
+    if(this->interface->getIndexVideo() < (int) this->videos.size())
+        this->startAnalysis();
+    else {
+        this->interface->restartProgram();
+    }
+}
+
+void Tracker::restartAnalysis() {
+    this->timer->stop();
+
+    this->writerStatistics->closeFile();
+
+    bool removeDir = this->dirCreator->removeDir(TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data());
+    if(!removeDir) cout << "erro ao remover diretorio." << endl;
+
+    //Releasing space
+    this->detector = NULL;
+    delete this->timer;
+    this->imageTracking.release();
+    this->coordinates.clear();
+
+    this->startAnalysis();
 }
 
 void Tracker::setTimer(bool status) {
     if(status)
-        this->tmrTimer->start(this->captureVideo->getFPS());
+        this->timer->start();
     else
-        this->tmrTimer->stop();
+        this->timer->stop();
+}
+
+QTimer* Tracker::getTimer() {
+    return this->timer;
+}
+
+void Tracker::saveSnapshot() {
+
+    //Creating directory
+    this->dirCreator->create(TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data()
+                             + SNAPSHOT_DIR_NAME);
+
+    //Saving image
+    stringstream filename;
+    filename << TESTES_DIR_NAME + "/" + this->cap->getFileName().section("/", -1, -1).toAscii().data()
+                + SNAPSHOT_DIR_NAME << "/snapshot" << this->countSnapshot++ << ".bmp";
+    imwrite(filename.str(), this->interface->getImage());
+}
+
+void Tracker::removeFromQueue(int index) {
+    this->videos.erase(this->videos.begin() + index);
 }
